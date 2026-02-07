@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"text/template"
 
-	"chainguard.dev/driftlessaf/agents/toolcall"
+	"chainguard.dev/driftlessaf/agents/toolcall/callbacks"
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler"
 	internaltemplate "chainguard.dev/driftlessaf/reconcilers/githubreconciler/internal/template"
 	"github.com/chainguard-dev/clog"
@@ -162,7 +162,7 @@ func (cm *CM[T]) NewSession(
 		prBody        string
 		prMergeable   *bool
 		prLabels      []string
-		findings      []toolcall.Finding
+		findings      []callbacks.Finding
 		pendingChecks []string
 	)
 
@@ -264,12 +264,12 @@ func (cm *CM[T]) collectFindings(
 	gqlClient *githubv4.Client,
 	owner, repo, sha string,
 	initialSuites gqlCheckSuitesConnection,
-) (findings []toolcall.Finding, pendingChecks []string) {
+) (findings []callbacks.Finding, pendingChecks []string) {
 	// Process failed check runs into findings
 	processFailedRuns := func(runs []gqlCheckRunNode) {
 		for _, run := range runs {
-			findings = append(findings, toolcall.Finding{
-				Kind:       toolcall.FindingKindCICheck,
+			findings = append(findings, callbacks.Finding{
+				Kind:       callbacks.FindingKindCICheck,
 				Identifier: fmt.Sprintf("%d", run.DatabaseId),
 				Details:    formatCheckRunDetails(run.Name, run.Status, run.Conclusion, run.Title, run.Summary, run.Text, run.DetailsUrl),
 				DetailsURL: run.DetailsUrl,
