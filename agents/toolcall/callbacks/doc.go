@@ -33,6 +33,7 @@ WorktreeCallbacks provides file operations on a git worktree:
 FindingCallbacks provides access to CI failure information:
 
 	cb := callbacks.FindingCallbacks{
+		Findings: findings, // List of findings for lookup by extensions
 		GetDetails: func(ctx context.Context, kind FindingKind, id string) (string, error) {
 			// Return pre-fetched finding details
 		},

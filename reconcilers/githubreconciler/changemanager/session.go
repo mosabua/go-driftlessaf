@@ -113,6 +113,7 @@ func (s *Session[T]) Findings() []callbacks.Finding {
 // Since all details are pre-fetched in NewSession, this just does a lookup.
 func (s *Session[T]) FindingCallbacks() callbacks.FindingCallbacks {
 	return callbacks.FindingCallbacks{
+		Findings: s.findings,
 		GetDetails: func(_ context.Context, kind callbacks.FindingKind, identifier string) (string, error) {
 			for _, f := range s.findings {
 				if f.Kind == kind && f.Identifier == identifier {

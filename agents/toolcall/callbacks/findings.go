@@ -38,6 +38,11 @@ type Finding struct {
 
 // FindingCallbacks provides callbacks for fetching finding details.
 type FindingCallbacks struct {
+	// Findings is the list of findings available in this context.
+	// This allows extensions to access finding metadata (like DetailsURL)
+	// without requiring a lookup callback.
+	Findings []Finding
+
 	// GetDetails retrieves detailed information about a finding.
 	// Since details are pre-fetched in the GraphQL query, this just
 	// looks up the finding by identifier and returns its Details field.
@@ -56,4 +61,15 @@ func (f FindingCallbacks) HasGetDetails() bool {
 // HasGetLogs returns true if the GetLogs callback is available.
 func (f FindingCallbacks) HasGetLogs() bool {
 	return f.GetLogs != nil
+}
+
+// GetFinding looks up a finding by kind and identifier.
+// Returns nil if not found.
+func (f FindingCallbacks) GetFinding(kind FindingKind, identifier string) *Finding {
+	for i := range f.Findings {
+		if f.Findings[i].Kind == kind && f.Findings[i].Identifier == identifier {
+			return &f.Findings[i]
+		}
+	}
+	return nil
 }
