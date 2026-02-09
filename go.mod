@@ -3,9 +3,9 @@ module chainguard.dev/driftlessaf
 go 1.25.7
 
 require (
-	chainguard.dev/apko v1.1.3
+	chainguard.dev/apko v1.1.6
 	chainguard.dev/go-grpc-kit v0.17.15
-	chainguard.dev/sdk v0.1.49
+	chainguard.dev/sdk v0.1.50
 	cloud.google.com/go/compute/metadata v0.9.0
 	cloud.google.com/go/storage v1.58.0
 	github.com/anthropics/anthropic-sdk-go v1.20.0
@@ -35,7 +35,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.40.0
 	golang.org/x/oauth2 v0.34.0
 	golang.org/x/sync v0.19.0
-	google.golang.org/api v0.264.0
+	google.golang.org/api v0.265.0
 	google.golang.org/genai v1.36.0
 	google.golang.org/grpc v1.78.0
 	google.golang.org/protobuf v1.36.11
