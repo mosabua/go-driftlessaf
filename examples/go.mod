@@ -6,7 +6,6 @@ require (
 	chainguard.dev/driftlessaf v0.0.0
 	chainguard.dev/go-grpc-kit v0.17.15
 	cloud.google.com/go/compute/metadata v0.9.0
-	github.com/anthropics/anthropic-sdk-go v1.20.0
 	github.com/chainguard-dev/clog v1.8.0
 	github.com/chainguard-dev/terraform-infra-common v0.10.0
 	github.com/go-git/go-git/v5 v5.16.5
@@ -15,7 +14,6 @@ require (
 	github.com/sethvargo/go-envconfig v1.3.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.65.0
 	golang.org/x/oauth2 v0.34.0
-	google.golang.org/genai v1.36.0
 	google.golang.org/grpc v1.78.0
 )
 
@@ -43,6 +41,7 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.54.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.3.0 // indirect
+	github.com/anthropics/anthropic-sdk-go v1.20.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/aws/aws-sdk-go v1.55.8 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.41.1 // indirect
@@ -238,6 +237,7 @@ require (
 	golang.org/x/text v0.33.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/api v0.265.0 // indirect
+	google.golang.org/genai v1.36.0 // indirect
 	google.golang.org/genproto v0.0.0-20251202230838-ff82c1b0f217 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260128011058-8636f8732409 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260128011058-8636f8732409 // indirect
