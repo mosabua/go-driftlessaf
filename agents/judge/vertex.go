@@ -8,6 +8,7 @@ package judge
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 
 	"chainguard.dev/driftlessaf/agents/executor/claudeexecutor"
@@ -51,19 +52,33 @@ func NewVertex(ctx context.Context, projectID, region, modelName string, opts ..
 
 // NewVertexWithEnricher creates a new Interface instance with an attribute enricher for metrics.
 // This is a convenience function for the common case of passing an enricher.
-func NewVertexWithEnricher(ctx context.Context, projectID, region, modelName string, enricher metrics.AttributeEnricher) (Interface, error) {
+func NewVertexWithEnricher(ctx context.Context, projectID, region, modelName string, enricher metrics.AttributeEnricher, resourceLabels ...map[string]string) (Interface, error) {
 	modelLower := strings.ToLower(modelName)
+
+	// Build executor options
+	labels := make(map[string]string)
+	if len(resourceLabels) > 0 {
+		// Copy existing labels
+		maps.Copy(labels, resourceLabels[0])
+	}
+	labels["model_name"] = modelLower
 
 	// Delegate to Claude implementation for Claude models
 	if strings.HasPrefix(modelLower, "claude-") {
-		return newClaude(ctx, projectID, region, modelName,
-			claudeexecutor.WithAttributeEnricher[*Request, *Judgement](enricher))
+		opts := []claudeexecutor.Option[*Request, *Judgement]{
+			claudeexecutor.WithAttributeEnricher[*Request, *Judgement](enricher),
+			claudeexecutor.WithResourceLabels[*Request, *Judgement](labels),
+		}
+		return newClaude(ctx, projectID, region, modelName, opts...)
 	}
 
 	// Delegate to Google implementation for Gemini models
 	if strings.HasPrefix(modelLower, "gemini-") {
-		return newGoogle(ctx, projectID, region, modelName,
-			googleexecutor.WithAttributeEnricher[*Request, *Judgement](enricher))
+		opts := []googleexecutor.Option[*Request, *Judgement]{
+			googleexecutor.WithAttributeEnricher[*Request, *Judgement](enricher),
+			googleexecutor.WithResourceLabels[*Request, *Judgement](labels),
+		}
+		return newGoogle(ctx, projectID, region, modelName, opts...)
 	}
 
 	return nil, fmt.Errorf("unsupported model: %s (expected claude-* or gemini-*)", modelName)
