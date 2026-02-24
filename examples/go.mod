@@ -14,6 +14,7 @@ require (
 	github.com/sethvargo/go-envconfig v1.3.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.65.0
 	golang.org/x/oauth2 v0.35.0
+	golang.org/x/tools v0.40.0
 	google.golang.org/grpc v1.78.0
 )
 
@@ -208,6 +209,7 @@ require (
 	github.com/transparency-dev/formats v0.0.0-20251017110053-404c0d5b696c // indirect
 	github.com/transparency-dev/merkle v0.0.2 // indirect
 	github.com/vbatts/tar-split v0.12.2 // indirect
+	github.com/waigani/diffparser v0.0.0-20190828052634-7391f219313d // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect

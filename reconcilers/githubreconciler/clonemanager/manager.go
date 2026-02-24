@@ -129,7 +129,7 @@ func (m *Manager) LeaseRef(ctx context.Context, res *githubreconciler.Resource, 
 		case res.Path == "":
 			return nil, errors.New("resource path cannot be empty")
 		}
-	case githubreconciler.ResourceTypeIssue:
+	case githubreconciler.ResourceTypeIssue, githubreconciler.ResourceTypePullRequest:
 		switch {
 		case res.Owner == "":
 			return nil, errors.New("resource owner cannot be empty")
@@ -193,13 +193,19 @@ func (m *Manager) createClone(ctx context.Context, ref string, res *githubreconc
 		return nil, fmt.Errorf("getting token: %w", err)
 	}
 
-	repo, err := git.PlainClone(dir, false, &git.CloneOptions{
-		URL:           remote,
-		ReferenceName: plumbing.NewBranchReferenceName(ref),
-		SingleBranch:  true,
-		Depth:         gitFetchDepth,
-		Auth:          auth,
-	})
+	cloneOpts := &git.CloneOptions{
+		URL:          remote,
+		SingleBranch: true,
+		Depth:        gitFetchDepth,
+		Auth:         auth,
+	}
+	// Only set ReferenceName for branch refs. Non-branch refs (e.g.
+	// refs/pull/N/head) are not advertised during clone negotiation, so we
+	// clone the default branch and let prepareClone fetch the target ref.
+	if !strings.HasPrefix(ref, "refs/") {
+		cloneOpts.ReferenceName = plumbing.NewBranchReferenceName(ref)
+	}
+	repo, err := git.PlainClone(dir, false, cloneOpts)
 	if err != nil {
 		os.RemoveAll(dir)
 		return nil, fmt.Errorf("cloning repository: %w", err)
@@ -237,8 +243,9 @@ func (m *Manager) prepareClone(ctx context.Context, cl *clone, ref string, res *
 		return "", false, fmt.Errorf("getting token: %w", err)
 	}
 
+	dst := plumbing.NewRemoteReferenceName("origin", ref)
 	fetchOpts := &git.FetchOptions{
-		RefSpecs: []gitconfig.RefSpec{gitconfig.RefSpec(fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", ref, ref))},
+		RefSpecs: []gitconfig.RefSpec{gitconfig.RefSpec(fmt.Sprintf("+%s:%s", resolveRefName(ref), dst))},
 		Auth:     auth,
 		Depth:    gitFetchDepth,
 	}
@@ -248,7 +255,7 @@ func (m *Manager) prepareClone(ctx context.Context, cl *clone, ref string, res *
 		return "", false, fmt.Errorf("fetching ref %s: %w", ref, err)
 	}
 
-	remoteRef, err := repo.Reference(plumbing.NewRemoteReferenceName("origin", ref), true)
+	remoteRef, err := repo.Reference(dst, true)
 	if err != nil {
 		return "", false, fmt.Errorf("getting remote ref %s: %w", ref, err)
 	}
@@ -348,6 +355,16 @@ func (m *Manager) authForRemote() (*githttp.BasicAuth, error) {
 
 func defaultRemoteURL(res *githubreconciler.Resource) string {
 	return fmt.Sprintf("https://github.com/%s/%s", res.Owner, res.Repo)
+}
+
+// resolveRefName returns a fully qualified reference name. If ref already
+// starts with "refs/" it is used as-is; otherwise it is treated as a branch
+// name under refs/heads/.
+func resolveRefName(ref string) plumbing.ReferenceName {
+	if strings.HasPrefix(ref, "refs/") {
+		return plumbing.ReferenceName(ref)
+	}
+	return plumbing.NewBranchReferenceName(ref)
 }
 
 // MakeAndPushChanges creates a new branch at the leased SHA, delegates change

@@ -21,6 +21,46 @@ import (
 	"github.com/google/go-github/v75/github"
 )
 
+// State is a bit-field representing the composite state of a PR.
+// Multiple flags can be set simultaneously (e.g., a PR can need a rebase
+// and have findings and have pending checks all at once).
+type State int
+
+const (
+	// StateNoPR indicates no existing PR.
+	StateNoPR State = 1 << iota
+	// StateNeedsRebase indicates the PR has merge conflicts.
+	StateNeedsRebase
+	// StateUnknown indicates GitHub is still computing mergeability.
+	StateUnknown
+	// StateHasFindings indicates the PR has CI failures to address.
+	// Only set when WithFindingsIteration is enabled.
+	StateHasFindings
+	// StatePending indicates CI checks are still running.
+	StatePending
+)
+
+// HasPR returns true if a PR exists.
+func (s State) HasPR() bool { return s&StateNoPR == 0 }
+
+// NeedsRebase returns true if the PR has merge conflicts.
+func (s State) NeedsRebase() bool { return s&StateNeedsRebase != 0 }
+
+// IsUnknown returns true if GitHub is still computing mergeability.
+func (s State) IsUnknown() bool { return s&StateUnknown != 0 }
+
+// HasFindings returns true if the PR has CI failures to address.
+func (s State) HasFindings() bool { return s&StateHasFindings != 0 }
+
+// HasPendingChecks returns true if CI checks are still running.
+func (s State) HasPendingChecks() bool { return s&StatePending != 0 }
+
+// HasNoConflicts returns true if the PR exists, has no merge conflicts,
+// and mergeability is known.
+func (s State) HasNoConflicts() bool {
+	return s.HasPR() && !s.NeedsRebase() && !s.IsUnknown()
+}
+
 // Session represents work on a specific PR for a specific resource.
 type Session[T any] struct {
 	manager    *CM[T]
@@ -61,9 +101,26 @@ func (s *Session[T]) ShouldSkip() bool {
 	return len(s.prAssignees) > 0
 }
 
-// HasPendingChecks returns true if there are checks that are not yet complete.
-func (s *Session[T]) HasPendingChecks() bool {
-	return len(s.pendingChecks) > 0
+// State returns the composite state of the PR as a bit-field.
+// Multiple flags can be set simultaneously.
+func (s *Session[T]) State() State {
+	if s.prNumber == 0 {
+		return StateNoPR
+	}
+	var state State
+	switch {
+	case s.prMergeable == nil:
+		state |= StateUnknown
+	case !*s.prMergeable:
+		state |= StateNeedsRebase
+	}
+	if s.manager.handlesFindings && len(s.findings) > 0 {
+		state |= StateHasFindings
+	}
+	if len(s.pendingChecks) > 0 {
+		state |= StatePending
+	}
+	return state
 }
 
 // PendingChecks returns the names of checks that are not yet complete.
@@ -99,12 +156,6 @@ func (s *Session[T]) CloseAnyOutstanding(ctx context.Context, message string) er
 	}
 
 	return nil
-}
-
-// HasFindings returns true if the existing PR has CI failures that need addressing.
-// Returns false if no PR exists or if all checks passed.
-func (s *Session[T]) HasFindings() bool {
-	return len(s.findings) > 0
 }
 
 // Findings returns the list of findings to be addressed.
@@ -249,44 +300,27 @@ func (s *Session[T]) Upsert(
 }
 
 // needsRefresh determines if an existing PR needs to be refreshed.
-// Returns true if no existing PR, PR has merge conflict, or embedded data differs.
-// Returns an error if the Mergeable status is still being computed by GitHub (RequeueAfter 5 minutes).
+// Uses State() for mergeability and CI checks, then falls through to
+// embedded data comparison for the remaining cases.
 func (s *Session[T]) needsRefresh(ctx context.Context, expected *T) (bool, error) {
-	if s.prNumber == 0 {
-		return true, nil
-	}
-
 	log := clog.FromContext(ctx)
+	state := s.State()
 
-	// Check if GitHub is still computing the mergeable status
-	// See: https://docs.github.com/en/rest/pulls/pulls?apiVersion=2022-11-28#get-a-pull-request
-	// "The value of the mergeable attribute can be true, false, or null. If the value is null,
-	// then GitHub has started a background job to compute the mergeability."
-	if s.prMergeable == nil {
+	switch {
+	case !state.HasPR(), state.NeedsRebase(), state.HasFindings():
+		return true, nil
+	case state.IsUnknown():
 		log.Info("PR mergeable status is still being computed by GitHub, requeueing")
 		return false, workqueue.RequeueAfter(5 * time.Minute)
 	}
 
-	// Check for merge conflicts
-	if !*s.prMergeable {
-		log.Info("PR has merge conflict, refresh needed")
-		return true, nil
-	}
-
-	// Check for CI failures that need addressing (only if the bot handles findings)
-	if s.manager.handlesFindings && len(s.findings) > 0 {
-		log.Info("PR has CI failures, refresh needed")
-		return true, nil
-	}
-
-	// Extract embedded data from PR body
+	// Pending or mergeable: check if embedded data differs
 	existing, err := s.manager.templateExecutor.Extract(s.prBody)
 	if err != nil {
 		log.Warnf("Failed to extract data from PR body: %v", err)
 		return true, nil
 	}
 
-	// Compare data using deep equality
 	if !reflect.DeepEqual(existing, expected) {
 		log.Infof("PR data differs, refresh needed: %s", cmp.Diff(existing, expected))
 		return true, nil
