@@ -30,16 +30,16 @@ type Analyzer interface {
 // Diagnostic represents a single issue discovered by an Analyzer.
 type Diagnostic struct {
 	// Path is the file path relative to the repo root.
-	Path string
+	Path string `json:"path" jsonschema:"description=File path relative to the repo root"`
 
 	// Line is the line number (0 if not applicable).
-	Line int
+	Line int `json:"line" jsonschema:"description=Line number of the issue (0 if not applicable)"`
 
 	// Message is a human-readable description of the issue.
-	Message string
+	Message string `json:"message" jsonschema:"description=Human-readable description of the issue"`
 
 	// Rule is the specific check/rule ID (e.g., "S1000", "modernize").
-	Rule string
+	Rule string `json:"rule" jsonschema:"description=The rule that was violated"`
 }
 
 // AsFinding converts a Diagnostic into a Finding so that diagnostics and

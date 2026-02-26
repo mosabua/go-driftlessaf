@@ -41,8 +41,23 @@ func (r *Reconciler[Req, Resp, CB]) reconcilePullRequest(ctx context.Context, re
 	ctx = clog.WithLogger(ctx, log)
 	session := r.statusManager.NewSession(gh, res, sha)
 
+	// Check if the status is already at the PR HEAD, completed, and neutral.
+	// This lets us skip redundant SetActualState calls in cases 1 and 2.
+	currentStatus, err := session.ObservedState(ctx)
+	if err != nil {
+		return fmt.Errorf("get observed state: %w", err)
+	}
+	neutralAtHead := currentStatus != nil &&
+		currentStatus.ObservedGeneration == sha &&
+		currentStatus.Status == "completed" &&
+		currentStatus.Conclusion == "neutral"
+
 	// Case 1: Skip label → report neutral/skipped status.
 	if hasLabel(pr, fmt.Sprintf("skip:%s", r.identity)) {
+		if neutralAtHead {
+			log.Debug("Skip status already set for this SHA")
+			return nil
+		}
 		log.Info("PR has skip label, reporting skipped status")
 		return session.SetActualState(ctx, "Skipped", &statusmanager.Status[CheckDetails]{
 			Status:     "completed",
@@ -54,11 +69,13 @@ func (r *Reconciler[Req, Resp, CB]) reconcilePullRequest(ctx context.Context, re
 	branch := pr.GetHead().GetRef()
 	prefix := r.identity + "/"
 	if strings.HasPrefix(branch, prefix) {
-		if err := session.SetActualState(ctx, "Managed by "+r.identity, &statusmanager.Status[CheckDetails]{
-			Status:     "completed",
-			Conclusion: "neutral",
-		}); err != nil {
-			return fmt.Errorf("set managed status: %w", err)
+		if !neutralAtHead {
+			if err := session.SetActualState(ctx, "Managed by "+r.identity, &statusmanager.Status[CheckDetails]{
+				Status:     "completed",
+				Conclusion: "neutral",
+			}); err != nil {
+				return fmt.Errorf("set managed status: %w", err)
+			}
 		}
 
 		path := strings.TrimPrefix(branch, prefix)
@@ -66,15 +83,14 @@ func (r *Reconciler[Req, Resp, CB]) reconcilePullRequest(ctx context.Context, re
 		pathURL := fmt.Sprintf("https://github.com/%s/%s/blob/%s/%s", res.Owner, res.Repo, base, path)
 
 		log.With("path", path, "url", pathURL).Info("Re-queuing path from managed PR")
-		return workqueue.QueueKeys(workqueue.QueueKey{Key: pathURL})
+		return workqueue.QueueKeys(workqueue.QueueKey{
+			Key:      pathURL,
+			Priority: 50, // Elevate the priority to prioritize acting on existing PRs over creating new ones.
+		})
 	}
 
 	// Case 3: Other PR → run analyzer on changed files.
 	// Check if we already processed this SHA to avoid redundant work.
-	currentStatus, err := session.ObservedState(ctx)
-	if err != nil {
-		return fmt.Errorf("get observed state: %w", err)
-	}
 	if currentStatus != nil && currentStatus.ObservedGeneration == sha && currentStatus.Status == "completed" {
 		log.Debug("Already processed this SHA, skipping")
 		return nil
