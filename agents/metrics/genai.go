@@ -7,8 +7,8 @@ package metrics
 
 import (
 	"context"
-	"log/slog"
 
+	"github.com/chainguard-dev/clog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -41,7 +41,7 @@ func NewGenAI(meterName string) *GenAI {
 		metric.WithDescription("The number of prompt tokens used"),
 		metric.WithUnit("{tokens}"))
 	if err != nil {
-		slog.Warn("Failed to create prompt tokens counter, metrics will be disabled", "error", err, "meter", meterName)
+		clog.FromContext(context.Background()).Warn("Failed to create prompt tokens counter, metrics will be disabled", "error", err, "meter", meterName)
 		promptTokens = noop.Int64Counter{}
 	}
 
@@ -50,7 +50,7 @@ func NewGenAI(meterName string) *GenAI {
 		metric.WithDescription("The number of completion tokens used"),
 		metric.WithUnit("{tokens}"))
 	if err != nil {
-		slog.Warn("Failed to create completion tokens counter, metrics will be disabled", "error", err, "meter", meterName)
+		clog.FromContext(context.Background()).Warn("Failed to create completion tokens counter, metrics will be disabled", "error", err, "meter", meterName)
 		completionTokens = noop.Int64Counter{}
 	}
 
@@ -59,7 +59,7 @@ func NewGenAI(meterName string) *GenAI {
 		metric.WithDescription("The number of tool calls made during execution"),
 		metric.WithUnit("{calls}"))
 	if err != nil {
-		slog.Warn("Failed to create tool call counter, metrics will be disabled", "error", err, "meter", meterName)
+		clog.FromContext(context.Background()).Warn("Failed to create tool call counter, metrics will be disabled", "error", err, "meter", meterName)
 		toolCallCounter = noop.Int64Counter{}
 	}
 
