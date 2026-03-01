@@ -67,15 +67,15 @@ func TestNewCreatesReconciler(t *testing.T) {
 
 	// Verify the reconciler was created with expected values
 	if rec.identity != "test-identity" {
-		t.Errorf("reconciler.identity = %q, want %q", rec.identity, "test-identity")
+		t.Errorf("reconciler.identity = %q, wanted = %q", rec.identity, "test-identity")
 	}
 
 	if len(rec.prLabels) != 2 {
-		t.Errorf("len(reconciler.prLabels) = %d, want 2", len(rec.prLabels))
+		t.Errorf("len(reconciler.prLabels) = %d, wanted = 2", len(rec.prLabels))
 	}
 
 	if rec.prLabels[0] != "label1" {
-		t.Errorf("reconciler.prLabels[0] = %q, want %q", rec.prLabels[0], "label1")
+		t.Errorf("reconciler.prLabels[0] = %q, wanted = %q", rec.prLabels[0], "label1")
 	}
 }
 
@@ -101,7 +101,7 @@ func TestNewWithEmptyLabels(t *testing.T) {
 	}
 
 	if len(rec.prLabels) != 0 {
-		t.Errorf("reconciler.prLabels = %v, want empty", rec.prLabels)
+		t.Errorf("reconciler.prLabels = %v, wanted = empty", rec.prLabels)
 	}
 }
 
@@ -117,11 +117,11 @@ func TestPRDataFields(t *testing.T) {
 	}
 
 	if data.Identity != "my-bot" {
-		t.Errorf("PRData.Identity = %q, want %q", data.Identity, "my-bot")
+		t.Errorf("PRData.Identity = %q, wanted = %q", data.Identity, "my-bot")
 	}
 
 	if data.IssueNumber != 123 {
-		t.Errorf("PRData.IssueNumber = %d, want 123", data.IssueNumber)
+		t.Errorf("PRData.IssueNumber = %d, wanted = 123", data.IssueNumber)
 	}
 
 	if data.IssueBodyHash != hash {
@@ -136,7 +136,7 @@ func TestResultInterface(t *testing.T) {
 	var r Result = result
 
 	if got := r.GetCommitMessage(); got != "test commit message" {
-		t.Errorf("Result.GetCommitMessage() = %q, want %q", got, "test commit message")
+		t.Errorf("Result.GetCommitMessage() = %q, wanted = %q", got, "test commit message")
 	}
 }
 
@@ -146,7 +146,7 @@ func TestResultInterfaceWithEmptyMessage(t *testing.T) {
 	var r Result = result
 
 	if got := r.GetCommitMessage(); got != "" {
-		t.Errorf("Result.GetCommitMessage() = %q, want empty string", got)
+		t.Errorf("Result.GetCommitMessage() = %q, wanted = empty string", got)
 	}
 }
 
@@ -173,6 +173,6 @@ func TestWithRequiredLabel(t *testing.T) {
 	}
 
 	if rec.requiredLabel != "test-identity/managed" {
-		t.Errorf("reconciler.requiredLabel = %q, want %q", rec.requiredLabel, "test-identity/managed")
+		t.Errorf("reconciler.requiredLabel = %q, wanted = %q", rec.requiredLabel, "test-identity/managed")
 	}
 }
