@@ -69,7 +69,7 @@ func TestReconcilerFields(t *testing.T) {
 		buildRequest: func(findings []callbacks.Finding) *testRequest {
 			return &testRequest{Findings: findings}
 		},
-		buildCallbacks: func(_ *gogit.Worktree, _ *changemanager.Session[PRData]) testCallbacks {
+		buildCallbacks: func(_ *gogit.Worktree, _ *changemanager.Session[PRData[*testRequest]]) testCallbacks {
 			return testCallbacks{}
 		},
 	}
@@ -95,7 +95,7 @@ func TestReconcilerWithEmptyLabels(t *testing.T) {
 		buildRequest: func(_ []callbacks.Finding) *testRequest {
 			return &testRequest{}
 		},
-		buildCallbacks: func(_ *gogit.Worktree, _ *changemanager.Session[PRData]) testCallbacks {
+		buildCallbacks: func(_ *gogit.Worktree, _ *changemanager.Session[PRData[*testRequest]]) testCallbacks {
 			return testCallbacks{}
 		},
 	}
@@ -109,7 +109,7 @@ func TestPRDataFields(t *testing.T) {
 	identity := fmt.Sprintf("test-%d", rand.Int64())
 	path := fmt.Sprintf("path/to/go-%d.mod", rand.Int64())
 
-	data := PRData{
+	data := PRData[*testRequest]{
 		Identity: identity,
 		Path:     path,
 	}

@@ -14,7 +14,7 @@ import (
 // Example_prData demonstrates the PRData type used for change detection.
 // The PRData is embedded in PR bodies to track state across reconciliations.
 func Example_prData() {
-	data := metapathreconciler.PRData{
+	data := metapathreconciler.PRData[any]{
 		Identity: "my-bot",
 	}
 

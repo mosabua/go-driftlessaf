@@ -20,7 +20,7 @@ SPDX-License-Identifier: Apache-2.0
 // # Basic Usage
 //
 //	// Create the changemanager with your PR templates
-//	cm, err := changemanager.New[metareconciler.PRData](identity, titleTmpl, bodyTmpl)
+//	cm, err := changemanager.New[metareconciler.PRData[*MyRequest]](identity, titleTmpl, bodyTmpl)
 //
 //	// Create the reconciler
 //	rec := metareconciler.New(
@@ -29,14 +29,14 @@ SPDX-License-Identifier: Apache-2.0
 //	    cloneMeta,
 //	    prLabels,
 //	    agent,
-//	    func(issue *github.Issue, session *changemanager.Session[metareconciler.PRData]) *MyRequest {
+//	    func(issue *github.Issue, session *changemanager.Session[metareconciler.PRData[*MyRequest]]) *MyRequest {
 //	        return &MyRequest{
 //	            Title:    issue.GetTitle(),
 //	            Body:     issue.GetBody(),
 //	            Findings: session.Findings(),
 //	        }
 //	    },
-//	    func(wt *gogit.Worktree, session *changemanager.Session[metareconciler.PRData]) MyCallbacks {
+//	    func(wt *gogit.Worktree, session *changemanager.Session[metareconciler.PRData[*MyRequest]]) MyCallbacks {
 //	        return toolcall.NewFindingTools(
 //	            toolcall.NewWorktreeTools(toolcall.EmptyTools{}, clonemanager.WorktreeCallbacks(wt)),
 //	            session.FindingCallbacks(),

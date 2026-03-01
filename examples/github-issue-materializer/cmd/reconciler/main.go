@@ -116,7 +116,7 @@ func main() {
 			toolcall.NewEmptyToolsProvider[*Result](),
 		),
 	)
-	buildCallbacks := func(wt *gogit.Worktree, session *changemanager.Session[metareconciler.PRData]) materializerTools {
+	buildCallbacks := func(wt *gogit.Worktree, session *changemanager.Session[metareconciler.PRData[*Request]]) materializerTools {
 		return toolcall.NewFindingTools(
 			toolcall.NewWorktreeTools(toolcall.EmptyTools{}, clonemanager.WorktreeCallbacks(wt)),
 			session.FindingCallbacks(),

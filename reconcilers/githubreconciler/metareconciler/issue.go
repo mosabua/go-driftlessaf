@@ -75,12 +75,16 @@ func (r *Reconciler[Req, Resp, CB]) reconcileIssue(ctx context.Context, res *git
 		log.With("state", state).Warn("Unexpected state combination")
 	}
 
+	// Build the request before Upsert so it can be stored in PRData.
+	request := r.buildRequest(issue, changeSession)
+
 	// Create/update the PR with the changes
-	prURL, err := changeSession.Upsert(ctx, &PRData{
+	prURL, err := changeSession.Upsert(ctx, &PRData[Req]{
 		Identity:      r.identity,
 		IssueURL:      issue.GetHTMLURL(),
 		IssueNumber:   issue.GetNumber(),
 		IssueBodyHash: sha256.Sum256([]byte(issue.GetBody())),
+		Request:       request,
 	}, false, r.prLabels, func(ctx context.Context, branchName string) error {
 		cloneMgr, err := r.cloneMeta.Get(res.Owner, res.Repo)
 		if err != nil {
@@ -109,7 +113,6 @@ func (r *Reconciler[Req, Resp, CB]) reconcileIssue(ctx context.Context, res *git
 
 		// Run the agent and push changes
 		return lease.MakeAndPushChanges(ctx, branchName, func(ctx context.Context, wt *gogit.Worktree) (string, error) {
-			request := r.buildRequest(issue, changeSession)
 			callbacks := r.buildCallbacks(wt, changeSession)
 
 			result, err := r.agent.Execute(ctx, request, callbacks)

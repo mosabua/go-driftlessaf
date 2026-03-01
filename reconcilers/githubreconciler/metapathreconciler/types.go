@@ -64,7 +64,12 @@ func (d Diagnostic) AsFinding() callbacks.Finding {
 
 // PRData is the data embedded in PR bodies for change detection.
 // This is used by the changemanager to track state across reconciliations.
-type PRData struct {
+// It is parameterized by the request type so that request data can be
+// incorporated into PR title and body templates. The Request field is
+// excluded from JSON serialization and does not participate in state
+// comparisons.
+type PRData[Req any] struct {
 	Identity string `json:"identity"`
 	Path     string `json:"path"`
+	Request  Req    `json:"-"`
 }

@@ -6,10 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 package changemanager
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 	"slices"
 	"time"
 
@@ -17,7 +18,6 @@ import (
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler"
 	"chainguard.dev/driftlessaf/workqueue"
 	"github.com/chainguard-dev/clog"
-	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-github/v75/github"
 )
 
@@ -314,15 +314,28 @@ func (s *Session[T]) needsRefresh(ctx context.Context, expected *T) (bool, error
 		return false, workqueue.RequeueAfter(5 * time.Minute)
 	}
 
-	// Pending or mergeable: check if embedded data differs
+	// Pending or mergeable: check if embedded data differs.
+	// Compare via JSON round-trip so that fields tagged json:"-" (such as
+	// Request, which is only used for template rendering) are excluded from
+	// the comparison.
 	existing, err := s.manager.templateExecutor.Extract(s.prBody)
 	if err != nil {
 		log.Warnf("Failed to extract data from PR body: %v", err)
 		return true, nil
 	}
 
-	if !reflect.DeepEqual(existing, expected) {
-		log.Infof("PR data differs, refresh needed: %s", cmp.Diff(existing, expected))
+	existingJSON, err := json.Marshal(existing)
+	if err != nil {
+		log.Warnf("Failed to marshal existing data: %v", err)
+		return true, nil
+	}
+	expectedJSON, err := json.Marshal(expected)
+	if err != nil {
+		log.Warnf("Failed to marshal expected data: %v", err)
+		return true, nil
+	}
+	if !bytes.Equal(existingJSON, expectedJSON) {
+		log.Infof("PR data differs, refresh needed: existing=%s expected=%s", existingJSON, expectedJSON)
 		return true, nil
 	}
 

@@ -21,7 +21,7 @@ import (
 // Reconciler is a generic reconciler for metaagents.
 type Reconciler[Req promptbuilder.Bindable, Resp Result, CB any] struct {
 	identity      string
-	changeManager *changemanager.CM[PRData]
+	changeManager *changemanager.CM[PRData[Req]]
 	cloneMeta     *clonemanager.Meta
 	prLabels      []string
 
@@ -32,8 +32,8 @@ type Reconciler[Req promptbuilder.Bindable, Resp Result, CB any] struct {
 
 	// Agent and its adapters
 	agent          metaagent.Agent[Req, Resp, CB]
-	buildRequest   func(*github.Issue, *changemanager.Session[PRData]) Req
-	buildCallbacks func(*gogit.Worktree, *changemanager.Session[PRData]) CB
+	buildRequest   func(*github.Issue, *changemanager.Session[PRData[Req]]) Req
+	buildCallbacks func(*gogit.Worktree, *changemanager.Session[PRData[Req]]) CB
 }
 
 // Option configures a Reconciler.
@@ -50,12 +50,12 @@ func WithRequiredLabel[Req promptbuilder.Bindable, Resp Result, CB any](label st
 // New creates a new generic metaagent reconciler.
 func New[Req promptbuilder.Bindable, Resp Result, CB any](
 	identity string,
-	changeManager *changemanager.CM[PRData],
+	changeManager *changemanager.CM[PRData[Req]],
 	cloneMeta *clonemanager.Meta,
 	prLabels []string,
 	agent metaagent.Agent[Req, Resp, CB],
-	buildRequest func(*github.Issue, *changemanager.Session[PRData]) Req,
-	buildCallbacks func(*gogit.Worktree, *changemanager.Session[PRData]) CB,
+	buildRequest func(*github.Issue, *changemanager.Session[PRData[Req]]) Req,
+	buildCallbacks func(*gogit.Worktree, *changemanager.Session[PRData[Req]]) CB,
 	opts ...Option[Req, Resp, CB],
 ) *Reconciler[Req, Resp, CB] {
 	r := &Reconciler[Req, Resp, CB]{

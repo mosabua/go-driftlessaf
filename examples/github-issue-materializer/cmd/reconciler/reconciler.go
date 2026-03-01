@@ -35,7 +35,7 @@ func newReconciler[CB any](
 	mat metaagent.Agent[*Request, *Result, CB],
 	cloneMeta *clonemanager.Meta,
 	prLabels []string,
-	buildCallbacks metareconciler.CallbacksBuilder[CB, metareconciler.PRData],
+	buildCallbacks metareconciler.CallbacksBuilder[CB, metareconciler.PRData[*Request]],
 ) (*reconciler[CB], error) {
 	identity = strings.TrimSpace(identity)
 	if identity == "" {
@@ -57,8 +57,8 @@ func newReconciler[CB any](
 		return nil, fmt.Errorf("parse body template: %w", err)
 	}
 
-	cm, err := changemanager.New[metareconciler.PRData](identity, titleTmpl, bodyTmpl,
-		changemanager.WithFindingsIteration[metareconciler.PRData](),
+	cm, err := changemanager.New[metareconciler.PRData[*Request]](identity, titleTmpl, bodyTmpl,
+		changemanager.WithFindingsIteration[metareconciler.PRData[*Request]](),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create change manager: %w", err)
@@ -70,7 +70,7 @@ func newReconciler[CB any](
 		cloneMeta,
 		prLabels,
 		mat,
-		func(issue *github.Issue, session *changemanager.Session[metareconciler.PRData]) *Request {
+		func(issue *github.Issue, session *changemanager.Session[metareconciler.PRData[*Request]]) *Request {
 			return &Request{
 				Title:    issue.GetTitle(),
 				Problem:  issue.GetBody(),

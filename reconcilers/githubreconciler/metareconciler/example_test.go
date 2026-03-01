@@ -58,7 +58,7 @@ func (r *MyRequest) Bind(prompt *promptbuilder.Prompt) (*promptbuilder.Prompt, e
 // and creating/updating PRs.
 func Example_reconcilerConstruction() {
 	// In practice, these would be created by the calling code
-	var cm *changemanager.CM[metareconciler.PRData]
+	var cm *changemanager.CM[metareconciler.PRData[*MyRequest]]
 	var cloneMeta *clonemanager.Meta
 	var agent metaagent.Agent[*MyRequest, *MyResult, baseCallbacks]
 
@@ -71,7 +71,7 @@ func Example_reconcilerConstruction() {
 		agent,      // The agent that processes issues
 
 		// Request builder: constructs the agent request from issue and session
-		func(issue *github.Issue, session *changemanager.Session[metareconciler.PRData]) *MyRequest {
+		func(issue *github.Issue, session *changemanager.Session[metareconciler.PRData[*MyRequest]]) *MyRequest {
 			return &MyRequest{
 				Title:    issue.GetTitle(),
 				Body:     issue.GetBody(),
@@ -80,7 +80,7 @@ func Example_reconcilerConstruction() {
 		},
 
 		// Callbacks builder: constructs agent callbacks from worktree and session
-		func(wt *gogit.Worktree, session *changemanager.Session[metareconciler.PRData]) baseCallbacks {
+		func(wt *gogit.Worktree, session *changemanager.Session[metareconciler.PRData[*MyRequest]]) baseCallbacks {
 			return toolcall.NewFindingTools(
 				toolcall.NewWorktreeTools(toolcall.EmptyTools{}, clonemanager.WorktreeCallbacks(wt)),
 				session.FindingCallbacks(),
@@ -99,7 +99,7 @@ func Example_reconcilerConstruction() {
 // The PRData is embedded in PR bodies to track state across reconciliations.
 func Example_prData() {
 	// PRData tracks the relationship between issues and PRs
-	data := metareconciler.PRData{
+	data := metareconciler.PRData[*MyRequest]{
 		Identity:    "my-bot",
 		IssueURL:    "https://github.com/org/repo/issues/123",
 		IssueNumber: 123,
@@ -135,7 +135,7 @@ func Example_resultInterface() {
 // will be processed; others are skipped.
 func Example_withRequiredLabel() {
 	// In practice, these would be created by the calling code
-	var cm *changemanager.CM[metareconciler.PRData]
+	var cm *changemanager.CM[metareconciler.PRData[*MyRequest]]
 	var cloneMeta *clonemanager.Meta
 	var agent metaagent.Agent[*MyRequest, *MyResult, baseCallbacks]
 
@@ -149,13 +149,13 @@ func Example_withRequiredLabel() {
 		cloneMeta,
 		[]string{},
 		agent,
-		func(issue *github.Issue, session *changemanager.Session[metareconciler.PRData]) *MyRequest {
+		func(issue *github.Issue, session *changemanager.Session[metareconciler.PRData[*MyRequest]]) *MyRequest {
 			return &MyRequest{
 				Title: issue.GetTitle(),
 				Body:  issue.GetBody(),
 			}
 		},
-		func(wt *gogit.Worktree, session *changemanager.Session[metareconciler.PRData]) baseCallbacks {
+		func(wt *gogit.Worktree, session *changemanager.Session[metareconciler.PRData[*MyRequest]]) baseCallbacks {
 			return toolcall.NewFindingTools(
 				toolcall.NewWorktreeTools(toolcall.EmptyTools{}, callbacks.WorktreeCallbacks{}),
 				callbacks.FindingCallbacks{},

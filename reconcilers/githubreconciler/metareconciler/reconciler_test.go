@@ -53,10 +53,10 @@ func TestNewCreatesReconciler(t *testing.T) {
 		nil, // cloneMeta - not used in this test
 		[]string{"label1", "label2"},
 		agent,
-		func(issue *github.Issue, session *changemanager.Session[PRData]) *testRequest {
+		func(issue *github.Issue, session *changemanager.Session[PRData[*testRequest]]) *testRequest {
 			return &testRequest{}
 		},
-		func(wt *gogit.Worktree, session *changemanager.Session[PRData]) testCallbacks {
+		func(wt *gogit.Worktree, session *changemanager.Session[PRData[*testRequest]]) testCallbacks {
 			return testCallbacks{}
 		},
 	)
@@ -88,10 +88,10 @@ func TestNewWithEmptyLabels(t *testing.T) {
 		nil,
 		nil, // empty labels
 		agent,
-		func(issue *github.Issue, session *changemanager.Session[PRData]) *testRequest {
+		func(issue *github.Issue, session *changemanager.Session[PRData[*testRequest]]) *testRequest {
 			return &testRequest{}
 		},
-		func(wt *gogit.Worktree, session *changemanager.Session[PRData]) testCallbacks {
+		func(wt *gogit.Worktree, session *changemanager.Session[PRData[*testRequest]]) testCallbacks {
 			return testCallbacks{}
 		},
 	)
@@ -109,7 +109,7 @@ func TestPRDataFields(t *testing.T) {
 	body := "test issue body"
 	hash := sha256.Sum256([]byte(body))
 
-	data := PRData{
+	data := PRData[*testRequest]{
 		Identity:      "my-bot",
 		IssueURL:      "https://github.com/org/repo/issues/123",
 		IssueNumber:   123,
@@ -159,10 +159,10 @@ func TestWithRequiredLabel(t *testing.T) {
 		nil,
 		nil,
 		agent,
-		func(issue *github.Issue, session *changemanager.Session[PRData]) *testRequest {
+		func(issue *github.Issue, session *changemanager.Session[PRData[*testRequest]]) *testRequest {
 			return &testRequest{}
 		},
-		func(wt *gogit.Worktree, session *changemanager.Session[PRData]) testCallbacks {
+		func(wt *gogit.Worktree, session *changemanager.Session[PRData[*testRequest]]) testCallbacks {
 			return testCallbacks{}
 		},
 		WithRequiredLabel[*testRequest, *testResult, testCallbacks]("test-identity/managed"),

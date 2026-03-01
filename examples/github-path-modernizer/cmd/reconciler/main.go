@@ -117,7 +117,7 @@ func main() {
 			toolcall.NewEmptyToolsProvider[*Result](),
 		),
 	)
-	buildCallbacks := func(wt *gogit.Worktree, session *changemanager.Session[metapathreconciler.PRData]) modernizerTools {
+	buildCallbacks := func(wt *gogit.Worktree, session *changemanager.Session[metapathreconciler.PRData[*Request]]) modernizerTools {
 		return toolcall.NewFindingTools(
 			toolcall.NewWorktreeTools(toolcall.EmptyTools{}, clonemanager.WorktreeCallbacks(wt)),
 			session.FindingCallbacks(),

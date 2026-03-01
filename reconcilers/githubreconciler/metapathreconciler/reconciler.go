@@ -26,14 +26,14 @@ type Reconciler[Req promptbuilder.Bindable, Resp Result, CB any] struct {
 	identity      string
 	analyzer      Analyzer
 	statusManager *statusmanager.StatusManager[CheckDetails]
-	changeManager *changemanager.CM[PRData]
+	changeManager *changemanager.CM[PRData[Req]]
 	cloneMeta     *clonemanager.Meta
 	prLabels      []string
 
 	// Agent and its adapters
 	agent          metaagent.Agent[Req, Resp, CB]
 	buildRequest   func([]callbacks.Finding) Req
-	buildCallbacks func(*gogit.Worktree, *changemanager.Session[PRData]) CB
+	buildCallbacks func(*gogit.Worktree, *changemanager.Session[PRData[Req]]) CB
 }
 
 // New creates a new generic metaagent path reconciler.
@@ -41,12 +41,12 @@ func New[Req promptbuilder.Bindable, Resp Result, CB any](
 	ctx context.Context,
 	identity string,
 	analyzer Analyzer,
-	changeManager *changemanager.CM[PRData],
+	changeManager *changemanager.CM[PRData[Req]],
 	cloneMeta *clonemanager.Meta,
 	prLabels []string,
 	agent metaagent.Agent[Req, Resp, CB],
 	buildRequest func([]callbacks.Finding) Req,
-	buildCallbacks func(*gogit.Worktree, *changemanager.Session[PRData]) CB,
+	buildCallbacks func(*gogit.Worktree, *changemanager.Session[PRData[Req]]) CB,
 ) (*Reconciler[Req, Resp, CB], error) {
 	sm, err := statusmanager.NewStatusManager[CheckDetails](ctx, identity)
 	if err != nil {

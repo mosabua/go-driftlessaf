@@ -38,7 +38,7 @@ func newReconciler[CB any](
 	agent metaagent.Agent[*Request, *Result, CB],
 	cloneMeta *clonemanager.Meta,
 	prLabels []string,
-	buildCallbacks func(*gogit.Worktree, *changemanager.Session[metapathreconciler.PRData]) CB,
+	buildCallbacks func(*gogit.Worktree, *changemanager.Session[metapathreconciler.PRData[*Request]]) CB,
 ) (*reconciler[CB], error) {
 	identity = strings.TrimSpace(identity)
 	if identity == "" {
@@ -60,8 +60,8 @@ func newReconciler[CB any](
 		return nil, fmt.Errorf("parse body template: %w", err)
 	}
 
-	cm, err := changemanager.New[metapathreconciler.PRData](identity, titleTmpl, bodyTmpl,
-		changemanager.WithFindingsIteration[metapathreconciler.PRData](),
+	cm, err := changemanager.New[metapathreconciler.PRData[*Request]](identity, titleTmpl, bodyTmpl,
+		changemanager.WithFindingsIteration[metapathreconciler.PRData[*Request]](),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create change manager: %w", err)

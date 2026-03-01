@@ -20,7 +20,7 @@ SPDX-License-Identifier: Apache-2.0
 // # Basic Usage
 //
 //	// Create the changemanager with your PR templates
-//	cm, err := changemanager.New[metapathreconciler.PRData](identity, titleTmpl, bodyTmpl)
+//	cm, err := changemanager.New[metapathreconciler.PRData[*MyRequest]](identity, titleTmpl, bodyTmpl)
 //
 //	// Create the reconciler
 //	rec, err := metapathreconciler.New(
@@ -34,7 +34,7 @@ SPDX-License-Identifier: Apache-2.0
 //	    func(findings []callbacks.Finding) *MyRequest {
 //	        return &MyRequest{Findings: findings}
 //	    },
-//	    func(wt *gogit.Worktree, session *changemanager.Session[metapathreconciler.PRData]) MyCallbacks {
+//	    func(wt *gogit.Worktree, session *changemanager.Session[metapathreconciler.PRData[*MyRequest]]) MyCallbacks {
 //	        return toolcall.NewFindingTools(
 //	            toolcall.NewWorktreeTools(toolcall.EmptyTools{}, clonemanager.WorktreeCallbacks(wt)),
 //	            session.FindingCallbacks(),
