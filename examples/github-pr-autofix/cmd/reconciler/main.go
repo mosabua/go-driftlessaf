@@ -173,7 +173,7 @@ func reconcilePR(ctx context.Context, res *githubreconciler.Resource, gh *github
 			log.Infof("Already processed generation %s, skipping", generation[:8])
 			return nil
 		}
-		log.Infof("Label '%s' added since last run, re-processing", cfg.AutofixLabel)
+		log.Infof("Label %q added since last run, re-processing", cfg.AutofixLabel)
 	}
 
 	// Validate PR
@@ -199,8 +199,8 @@ func reconcilePR(ctx context.Context, res *githubreconciler.Resource, gh *github
 
 	// Check if the autofix label is present
 	if !hasAutofixLabel {
-		log.Infof("Skipping agent - '%s' label not present", cfg.AutofixLabel)
-		return session.SetActualState(ctx, fmt.Sprintf("Found %d issue(s) - add '%s' label to auto-fix", len(issues), cfg.AutofixLabel), &statusmanager.Status[prvalidation.Details]{
+		log.Infof("Skipping agent - %q label not present", cfg.AutofixLabel)
+		return session.SetActualState(ctx, fmt.Sprintf("Found %d issue(s) - add %q label to auto-fix", len(issues), cfg.AutofixLabel), &statusmanager.Status[prvalidation.Details]{
 			Status:     "completed",
 			Conclusion: "failure",
 			Details:    prvalidation.Details{Generation: generation, TitleValid: titleValid, DescriptionValid: descValid, Issues: issues, AgentEnabled: false},
