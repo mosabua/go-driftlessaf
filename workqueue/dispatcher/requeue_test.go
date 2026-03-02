@@ -33,38 +33,33 @@ func TestRequeueWithDelay(t *testing.T) {
 		wantRequeued  bool
 		wantMinDelay  time.Duration
 		wantCompleted bool
-	}{
-		{
-			name: "successful processing",
-			callback: func(_ context.Context, _ string, _ workqueue.Options) error {
-				return nil
-			},
-			wantCompleted: true,
+	}{{
+		name: "successful processing",
+		callback: func(_ context.Context, _ string, _ workqueue.Options) error {
+			return nil
 		},
-		{
-			name: "requeue with 5 second delay",
-			callback: func(_ context.Context, _ string, _ workqueue.Options) error {
-				return workqueue.RequeueAfter(5 * time.Second)
-			},
-			wantRequeued: true,
-			wantMinDelay: 5 * time.Second,
+		wantCompleted: true,
+	}, {
+		name: "requeue with 5 second delay",
+		callback: func(_ context.Context, _ string, _ workqueue.Options) error {
+			return workqueue.RequeueAfter(5 * time.Second)
 		},
-		{
-			name: "requeue with 1 minute delay",
-			callback: func(_ context.Context, _ string, _ workqueue.Options) error {
-				return workqueue.RequeueAfter(time.Minute)
-			},
-			wantRequeued: true,
-			wantMinDelay: time.Minute,
+		wantRequeued: true,
+		wantMinDelay: 5 * time.Second,
+	}, {
+		name: "requeue with 1 minute delay",
+		callback: func(_ context.Context, _ string, _ workqueue.Options) error {
+			return workqueue.RequeueAfter(time.Minute)
 		},
-		{
-			name: "non-retriable error",
-			callback: func(_ context.Context, _ string, _ workqueue.Options) error {
-				return workqueue.NonRetriableError(context.Canceled, "test non-retriable")
-			},
-			wantCompleted: true,
+		wantRequeued: true,
+		wantMinDelay: time.Minute,
+	}, {
+		name: "non-retriable error",
+		callback: func(_ context.Context, _ string, _ workqueue.Options) error {
+			return workqueue.NonRetriableError(context.Canceled, "test non-retriable")
 		},
-	}
+		wantCompleted: true,
+	}}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
