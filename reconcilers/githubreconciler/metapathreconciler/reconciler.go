@@ -17,7 +17,6 @@ import (
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/clonemanager"
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/statusmanager"
 	"github.com/chainguard-dev/clog"
-	gogit "github.com/go-git/go-git/v5"
 	"github.com/google/go-github/v75/github"
 )
 
@@ -32,8 +31,8 @@ type Reconciler[Req promptbuilder.Bindable, Resp Result, CB any] struct {
 
 	// Agent and its adapters
 	agent          metaagent.Agent[Req, Resp, CB]
-	buildRequest   func([]callbacks.Finding) Req
-	buildCallbacks func(*gogit.Worktree, *changemanager.Session[PRData[Req]]) CB
+	buildRequest   func(context.Context, []callbacks.Finding) (Req, error)
+	buildCallbacks func(context.Context, *changemanager.Session[PRData[Req]], *clonemanager.Lease) (CB, error)
 }
 
 // New creates a new generic metaagent path reconciler.
@@ -45,8 +44,8 @@ func New[Req promptbuilder.Bindable, Resp Result, CB any](
 	cloneMeta *clonemanager.Meta,
 	prLabels []string,
 	agent metaagent.Agent[Req, Resp, CB],
-	buildRequest func([]callbacks.Finding) Req,
-	buildCallbacks func(*gogit.Worktree, *changemanager.Session[PRData[Req]]) CB,
+	buildRequest func(context.Context, []callbacks.Finding) (Req, error),
+	buildCallbacks func(context.Context, *changemanager.Session[PRData[Req]], *clonemanager.Lease) (CB, error),
 ) (*Reconciler[Req, Resp, CB], error) {
 	sm, err := statusmanager.NewStatusManager[CheckDetails](ctx, identity)
 	if err != nil {

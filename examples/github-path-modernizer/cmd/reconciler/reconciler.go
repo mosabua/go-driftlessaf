@@ -17,7 +17,6 @@ import (
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/changemanager"
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/clonemanager"
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/metapathreconciler"
-	gogit "github.com/go-git/go-git/v5"
 )
 
 const (
@@ -38,7 +37,7 @@ func newReconciler[CB any](
 	agent metaagent.Agent[*Request, *Result, CB],
 	cloneMeta *clonemanager.Meta,
 	prLabels []string,
-	buildCallbacks func(*gogit.Worktree, *changemanager.Session[metapathreconciler.PRData[*Request]]) CB,
+	buildCallbacks func(context.Context, *changemanager.Session[metapathreconciler.PRData[*Request]], *clonemanager.Lease) (CB, error),
 ) (*reconciler[CB], error) {
 	identity = strings.TrimSpace(identity)
 	if identity == "" {
@@ -68,8 +67,8 @@ func newReconciler[CB any](
 	}
 
 	return metapathreconciler.New(ctx, identity, &goModernize{}, cm, cloneMeta, prLabels, agent,
-		func(findings []callbacks.Finding) *Request {
-			return &Request{Findings: findings}
+		func(_ context.Context, findings []callbacks.Finding) (*Request, error) {
+			return &Request{Findings: findings}, nil
 		},
 		buildCallbacks,
 	)

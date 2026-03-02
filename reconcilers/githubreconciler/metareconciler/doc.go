@@ -29,18 +29,22 @@ SPDX-License-Identifier: Apache-2.0
 //	    cloneMeta,
 //	    prLabels,
 //	    agent,
-//	    func(issue *github.Issue, session *changemanager.Session[metareconciler.PRData[*MyRequest]]) *MyRequest {
+//	    func(ctx context.Context, issue *github.Issue, session *changemanager.Session[metareconciler.PRData[*MyRequest]]) (*MyRequest, error) {
 //	        return &MyRequest{
 //	            Title:    issue.GetTitle(),
 //	            Body:     issue.GetBody(),
 //	            Findings: session.Findings(),
-//	        }
+//	        }, nil
 //	    },
-//	    func(wt *gogit.Worktree, session *changemanager.Session[metareconciler.PRData[*MyRequest]]) MyCallbacks {
+//	    func(ctx context.Context, session *changemanager.Session[metareconciler.PRData[*MyRequest]], lease *clonemanager.Lease) (MyCallbacks, error) {
+//	        wt, err := lease.Repo().Worktree()
+//	        if err != nil {
+//	            return MyCallbacks{}, err
+//	        }
 //	        return toolcall.NewFindingTools(
 //	            toolcall.NewWorktreeTools(toolcall.EmptyTools{}, clonemanager.WorktreeCallbacks(wt)),
 //	            session.FindingCallbacks(),
-//	        )
+//	        ), nil
 //	    },
 //	)
 package metareconciler

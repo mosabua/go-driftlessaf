@@ -13,7 +13,7 @@ import (
 	"chainguard.dev/driftlessaf/agents/promptbuilder"
 	"chainguard.dev/driftlessaf/agents/toolcall"
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/changemanager"
-	gogit "github.com/go-git/go-git/v5"
+	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/clonemanager"
 	"github.com/google/go-github/v75/github"
 )
 
@@ -53,11 +53,11 @@ func TestNewCreatesReconciler(t *testing.T) {
 		nil, // cloneMeta - not used in this test
 		[]string{"label1", "label2"},
 		agent,
-		func(issue *github.Issue, session *changemanager.Session[PRData[*testRequest]]) *testRequest {
-			return &testRequest{}
+		func(_ context.Context, _ *github.Issue, _ *changemanager.Session[PRData[*testRequest]]) (*testRequest, error) {
+			return &testRequest{}, nil
 		},
-		func(wt *gogit.Worktree, session *changemanager.Session[PRData[*testRequest]]) testCallbacks {
-			return testCallbacks{}
+		func(_ context.Context, _ *changemanager.Session[PRData[*testRequest]], _ *clonemanager.Lease) (testCallbacks, error) {
+			return testCallbacks{}, nil
 		},
 	)
 
@@ -88,11 +88,11 @@ func TestNewWithEmptyLabels(t *testing.T) {
 		nil,
 		nil, // empty labels
 		agent,
-		func(issue *github.Issue, session *changemanager.Session[PRData[*testRequest]]) *testRequest {
-			return &testRequest{}
+		func(_ context.Context, _ *github.Issue, _ *changemanager.Session[PRData[*testRequest]]) (*testRequest, error) {
+			return &testRequest{}, nil
 		},
-		func(wt *gogit.Worktree, session *changemanager.Session[PRData[*testRequest]]) testCallbacks {
-			return testCallbacks{}
+		func(_ context.Context, _ *changemanager.Session[PRData[*testRequest]], _ *clonemanager.Lease) (testCallbacks, error) {
+			return testCallbacks{}, nil
 		},
 	)
 
@@ -159,11 +159,11 @@ func TestWithRequiredLabel(t *testing.T) {
 		nil,
 		nil,
 		agent,
-		func(issue *github.Issue, session *changemanager.Session[PRData[*testRequest]]) *testRequest {
-			return &testRequest{}
+		func(_ context.Context, _ *github.Issue, _ *changemanager.Session[PRData[*testRequest]]) (*testRequest, error) {
+			return &testRequest{}, nil
 		},
-		func(wt *gogit.Worktree, session *changemanager.Session[PRData[*testRequest]]) testCallbacks {
-			return testCallbacks{}
+		func(_ context.Context, _ *changemanager.Session[PRData[*testRequest]], _ *clonemanager.Lease) (testCallbacks, error) {
+			return testCallbacks{}, nil
 		},
 		WithRequiredLabel[*testRequest, *testResult, testCallbacks]("test-identity/managed"),
 	)

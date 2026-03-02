@@ -14,7 +14,6 @@ import (
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/changemanager"
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/clonemanager"
 	"github.com/chainguard-dev/clog"
-	gogit "github.com/go-git/go-git/v5"
 	"github.com/google/go-github/v75/github"
 )
 
@@ -32,8 +31,8 @@ type Reconciler[Req promptbuilder.Bindable, Resp Result, CB any] struct {
 
 	// Agent and its adapters
 	agent          metaagent.Agent[Req, Resp, CB]
-	buildRequest   func(*github.Issue, *changemanager.Session[PRData[Req]]) Req
-	buildCallbacks func(*gogit.Worktree, *changemanager.Session[PRData[Req]]) CB
+	buildRequest   func(context.Context, *github.Issue, *changemanager.Session[PRData[Req]]) (Req, error)
+	buildCallbacks func(context.Context, *changemanager.Session[PRData[Req]], *clonemanager.Lease) (CB, error)
 }
 
 // Option configures a Reconciler.
@@ -54,8 +53,8 @@ func New[Req promptbuilder.Bindable, Resp Result, CB any](
 	cloneMeta *clonemanager.Meta,
 	prLabels []string,
 	agent metaagent.Agent[Req, Resp, CB],
-	buildRequest func(*github.Issue, *changemanager.Session[PRData[Req]]) Req,
-	buildCallbacks func(*gogit.Worktree, *changemanager.Session[PRData[Req]]) CB,
+	buildRequest func(context.Context, *github.Issue, *changemanager.Session[PRData[Req]]) (Req, error),
+	buildCallbacks func(context.Context, *changemanager.Session[PRData[Req]], *clonemanager.Lease) (CB, error),
 	opts ...Option[Req, Resp, CB],
 ) *Reconciler[Req, Resp, CB] {
 	r := &Reconciler[Req, Resp, CB]{

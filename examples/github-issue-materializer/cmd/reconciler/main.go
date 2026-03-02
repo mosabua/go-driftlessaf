@@ -34,7 +34,6 @@ import (
 	_ "github.com/chainguard-dev/clog/gcp/init"
 	"github.com/chainguard-dev/terraform-infra-common/pkg/httpmetrics"
 	"github.com/chainguard-dev/terraform-infra-common/pkg/profiler"
-	gogit "github.com/go-git/go-git/v5"
 	"github.com/google/go-github/v75/github"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
 	"github.com/sethvargo/go-envconfig"
@@ -116,11 +115,15 @@ func main() {
 			toolcall.NewEmptyToolsProvider[*Result](),
 		),
 	)
-	buildCallbacks := func(wt *gogit.Worktree, session *changemanager.Session[metareconciler.PRData[*Request]]) materializerTools {
+	buildCallbacks := func(_ context.Context, session *changemanager.Session[metareconciler.PRData[*Request]], lease *clonemanager.Lease) (materializerTools, error) {
+		wt, err := lease.Repo().Worktree()
+		if err != nil {
+			return materializerTools{}, err
+		}
 		return toolcall.NewFindingTools(
 			toolcall.NewWorktreeTools(toolcall.EmptyTools{}, clonemanager.WorktreeCallbacks(wt)),
 			session.FindingCallbacks(),
-		)
+		), nil
 	}
 
 	// Create the materializer agent

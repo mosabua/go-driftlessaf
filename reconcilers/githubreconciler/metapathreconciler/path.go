@@ -122,7 +122,10 @@ func (r *Reconciler[Req, Resp, CB]) reconcilePath(ctx context.Context, res *gith
 	log.With("findings", len(findings)).Info("Running agent")
 
 	// Build the request before Upsert so it can be stored in PRData.
-	request := r.buildRequest(findings)
+	request, err := r.buildRequest(ctx, findings)
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
 
 	// Upsert PR with agent changes
 	prURL, err := session.Upsert(ctx, &PRData[Req]{
@@ -130,8 +133,11 @@ func (r *Reconciler[Req, Resp, CB]) reconcilePath(ctx context.Context, res *gith
 		Path:     res.Path,
 		Request:  request,
 	}, false, r.prLabels, func(ctx context.Context, branchName string) error {
-		return lease.MakeAndPushChanges(ctx, branchName, func(ctx context.Context, wt *gogit.Worktree) (string, error) {
-			cbs := r.buildCallbacks(wt, session)
+		return lease.MakeAndPushChanges(ctx, branchName, func(ctx context.Context, _ *gogit.Worktree) (string, error) {
+			cbs, err := r.buildCallbacks(ctx, session, lease)
+			if err != nil {
+				return "", fmt.Errorf("build callbacks: %w", err)
+			}
 
 			result, err := r.agent.Execute(ctx, request, cbs)
 			if err != nil {

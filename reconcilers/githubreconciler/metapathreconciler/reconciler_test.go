@@ -16,6 +16,7 @@ import (
 	"chainguard.dev/driftlessaf/agents/toolcall"
 	"chainguard.dev/driftlessaf/agents/toolcall/callbacks"
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/changemanager"
+	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/clonemanager"
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/google/go-github/v75/github"
 )
@@ -66,11 +67,11 @@ func TestReconcilerFields(t *testing.T) {
 		analyzer: &fakeAnalyzer{},
 		prLabels: []string{"label1", "label2"},
 		agent:    &fakeAgent{},
-		buildRequest: func(findings []callbacks.Finding) *testRequest {
-			return &testRequest{Findings: findings}
+		buildRequest: func(_ context.Context, findings []callbacks.Finding) (*testRequest, error) {
+			return &testRequest{Findings: findings}, nil
 		},
-		buildCallbacks: func(_ *gogit.Worktree, _ *changemanager.Session[PRData[*testRequest]]) testCallbacks {
-			return testCallbacks{}
+		buildCallbacks: func(_ context.Context, _ *changemanager.Session[PRData[*testRequest]], _ *clonemanager.Lease) (testCallbacks, error) {
+			return testCallbacks{}, nil
 		},
 	}
 
@@ -92,11 +93,11 @@ func TestReconcilerWithEmptyLabels(t *testing.T) {
 		identity: "test-identity",
 		analyzer: &fakeAnalyzer{},
 		agent:    &fakeAgent{},
-		buildRequest: func(_ []callbacks.Finding) *testRequest {
-			return &testRequest{}
+		buildRequest: func(_ context.Context, _ []callbacks.Finding) (*testRequest, error) {
+			return &testRequest{}, nil
 		},
-		buildCallbacks: func(_ *gogit.Worktree, _ *changemanager.Session[PRData[*testRequest]]) testCallbacks {
-			return testCallbacks{}
+		buildCallbacks: func(_ context.Context, _ *changemanager.Session[PRData[*testRequest]], _ *clonemanager.Lease) (testCallbacks, error) {
+			return testCallbacks{}, nil
 		},
 	}
 

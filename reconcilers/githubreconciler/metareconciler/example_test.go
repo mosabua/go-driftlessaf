@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package metareconciler_test
 
 import (
+	"context"
 	"fmt"
 
 	"chainguard.dev/driftlessaf/agents/metaagent"
@@ -15,7 +16,6 @@ import (
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/changemanager"
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/clonemanager"
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/metareconciler"
-	gogit "github.com/go-git/go-git/v5"
 	"github.com/google/go-github/v75/github"
 )
 
@@ -71,20 +71,24 @@ func Example_reconcilerConstruction() {
 		agent,      // The agent that processes issues
 
 		// Request builder: constructs the agent request from issue and session
-		func(issue *github.Issue, session *changemanager.Session[metareconciler.PRData[*MyRequest]]) *MyRequest {
+		func(_ context.Context, issue *github.Issue, session *changemanager.Session[metareconciler.PRData[*MyRequest]]) (*MyRequest, error) {
 			return &MyRequest{
 				Title:    issue.GetTitle(),
 				Body:     issue.GetBody(),
 				Findings: session.Findings(),
-			}
+			}, nil
 		},
 
-		// Callbacks builder: constructs agent callbacks from worktree and session
-		func(wt *gogit.Worktree, session *changemanager.Session[metareconciler.PRData[*MyRequest]]) baseCallbacks {
+		// Callbacks builder: constructs agent callbacks from session and lease
+		func(_ context.Context, session *changemanager.Session[metareconciler.PRData[*MyRequest]], lease *clonemanager.Lease) (baseCallbacks, error) {
+			wt, err := lease.Repo().Worktree()
+			if err != nil {
+				return baseCallbacks{}, err
+			}
 			return toolcall.NewFindingTools(
 				toolcall.NewWorktreeTools(toolcall.EmptyTools{}, clonemanager.WorktreeCallbacks(wt)),
 				session.FindingCallbacks(),
-			)
+			), nil
 		},
 	)
 
@@ -149,17 +153,17 @@ func Example_withRequiredLabel() {
 		cloneMeta,
 		[]string{},
 		agent,
-		func(issue *github.Issue, session *changemanager.Session[metareconciler.PRData[*MyRequest]]) *MyRequest {
+		func(_ context.Context, issue *github.Issue, _ *changemanager.Session[metareconciler.PRData[*MyRequest]]) (*MyRequest, error) {
 			return &MyRequest{
 				Title: issue.GetTitle(),
 				Body:  issue.GetBody(),
-			}
+			}, nil
 		},
-		func(wt *gogit.Worktree, session *changemanager.Session[metareconciler.PRData[*MyRequest]]) baseCallbacks {
+		func(_ context.Context, _ *changemanager.Session[metareconciler.PRData[*MyRequest]], _ *clonemanager.Lease) (baseCallbacks, error) {
 			return toolcall.NewFindingTools(
 				toolcall.NewWorktreeTools(toolcall.EmptyTools{}, callbacks.WorktreeCallbacks{}),
 				callbacks.FindingCallbacks{},
-			)
+			), nil
 		},
 		// Filter to only process issues managed by this identity
 		metareconciler.WithRequiredLabel[*MyRequest, *MyResult, baseCallbacks](

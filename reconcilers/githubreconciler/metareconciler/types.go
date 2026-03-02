@@ -6,8 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 package metareconciler
 
 import (
+	"context"
+
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/changemanager"
-	gogit "github.com/go-git/go-git/v5"
+	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/clonemanager"
 	"github.com/google/go-github/v75/github"
 )
 
@@ -18,10 +20,10 @@ type Result interface {
 }
 
 // RequestBuilder builds an agent request from an issue and session.
-type RequestBuilder[Req any, Data any] func(*github.Issue, *changemanager.Session[Data]) Req
+type RequestBuilder[Req any, Data any] func(context.Context, *github.Issue, *changemanager.Session[Data]) (Req, error)
 
-// CallbacksBuilder builds agent callbacks from a worktree and session.
-type CallbacksBuilder[CB any, Data any] func(*gogit.Worktree, *changemanager.Session[Data]) CB
+// CallbacksBuilder builds agent callbacks from a session and lease.
+type CallbacksBuilder[CB any, Data any] func(context.Context, *changemanager.Session[Data], *clonemanager.Lease) (CB, error)
 
 // PRData is the data embedded in PR bodies for change detection.
 // This is used by the changemanager to track state across reconciliations.

@@ -76,7 +76,10 @@ func (r *Reconciler[Req, Resp, CB]) reconcileIssue(ctx context.Context, res *git
 	}
 
 	// Build the request before Upsert so it can be stored in PRData.
-	request := r.buildRequest(issue, changeSession)
+	request, err := r.buildRequest(ctx, issue, changeSession)
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
 
 	// Create/update the PR with the changes
 	prURL, err := changeSession.Upsert(ctx, &PRData[Req]{
@@ -112,10 +115,13 @@ func (r *Reconciler[Req, Resp, CB]) reconcileIssue(ctx context.Context, res *git
 		}()
 
 		// Run the agent and push changes
-		return lease.MakeAndPushChanges(ctx, branchName, func(ctx context.Context, wt *gogit.Worktree) (string, error) {
-			callbacks := r.buildCallbacks(wt, changeSession)
+		return lease.MakeAndPushChanges(ctx, branchName, func(ctx context.Context, _ *gogit.Worktree) (string, error) {
+			cbs, err := r.buildCallbacks(ctx, changeSession, lease)
+			if err != nil {
+				return "", fmt.Errorf("build callbacks: %w", err)
+			}
 
-			result, err := r.agent.Execute(ctx, request, callbacks)
+			result, err := r.agent.Execute(ctx, request, cbs)
 			if err != nil {
 				return "", fmt.Errorf("execute agent: %w", err)
 			}

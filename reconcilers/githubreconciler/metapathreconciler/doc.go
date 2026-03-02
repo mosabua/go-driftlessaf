@@ -31,14 +31,18 @@ SPDX-License-Identifier: Apache-2.0
 //	    cloneMeta,
 //	    prLabels,
 //	    agent,
-//	    func(findings []callbacks.Finding) *MyRequest {
-//	        return &MyRequest{Findings: findings}
+//	    func(ctx context.Context, findings []callbacks.Finding) (*MyRequest, error) {
+//	        return &MyRequest{Findings: findings}, nil
 //	    },
-//	    func(wt *gogit.Worktree, session *changemanager.Session[metapathreconciler.PRData[*MyRequest]]) MyCallbacks {
+//	    func(ctx context.Context, session *changemanager.Session[metapathreconciler.PRData[*MyRequest]], lease *clonemanager.Lease) (MyCallbacks, error) {
+//	        wt, err := lease.Repo().Worktree()
+//	        if err != nil {
+//	            return MyCallbacks{}, fmt.Errorf("get worktree: %w", err)
+//	        }
 //	        return toolcall.NewFindingTools(
 //	            toolcall.NewWorktreeTools(toolcall.EmptyTools{}, clonemanager.WorktreeCallbacks(wt)),
 //	            session.FindingCallbacks(),
-//	        )
+//	        ), nil
 //	    },
 //	)
 package metapathreconciler

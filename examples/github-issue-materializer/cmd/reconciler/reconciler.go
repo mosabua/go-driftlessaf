@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -70,12 +71,12 @@ func newReconciler[CB any](
 		cloneMeta,
 		prLabels,
 		mat,
-		func(issue *github.Issue, session *changemanager.Session[metareconciler.PRData[*Request]]) *Request {
+		func(_ context.Context, issue *github.Issue, session *changemanager.Session[metareconciler.PRData[*Request]]) (*Request, error) {
 			return &Request{
 				Title:    issue.GetTitle(),
 				Problem:  issue.GetBody(),
 				Findings: session.Findings(),
-			}
+			}, nil
 		},
 		buildCallbacks,
 		// Only process issues that have the managed label.
