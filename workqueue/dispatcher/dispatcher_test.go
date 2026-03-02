@@ -239,11 +239,13 @@ func TestHandleAsync_CallbackFails_NonRetriable(t *testing.T) {
 }
 
 func TestHandleAsync_RespectsBatchSize(t *testing.T) {
-	keys := []*mockKey{
-		{name: "k1"},
-		{name: "k2"},
-		{name: "k3"},
-	}
+	keys := []*mockKey{{
+		name: "k1",
+	}, {
+		name: "k2",
+	}, {
+		name: "k3",
+	}}
 
 	next := make([]workqueue.QueuedKey, len(keys))
 	for i := range keys {
