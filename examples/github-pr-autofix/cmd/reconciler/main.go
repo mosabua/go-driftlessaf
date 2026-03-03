@@ -134,8 +134,7 @@ func hasLabel(pr *github.PullRequest, labelName string) bool {
 
 // reconcilePR validates a PR and optionally uses an agent to fix issues.
 func reconcilePR(ctx context.Context, res *githubreconciler.Resource, gh *github.Client, sm *statusmanager.StatusManager[prvalidation.Details], cfg *config, agent metaagent.Agent[*PRContext, *PRFixResult, PRTools]) error {
-	log := clog.FromContext(ctx)
-	log.Infof("Validating PR: %s/%s#%d", res.Owner, res.Repo, res.Number)
+	clog.InfoContextf(ctx, "Validating PR: %s/%s#%d", res.Owner, res.Repo, res.Number)
 
 	// Step 1: Fetch current PR state
 	pr, _, err := gh.PullRequests.Get(ctx, res.Owner, res.Repo, res.Number)
@@ -145,7 +144,7 @@ func reconcilePR(ctx context.Context, res *githubreconciler.Resource, gh *github
 
 	// Skip closed PRs
 	if pr.GetState() == "closed" {
-		log.Info("Skipping closed PR")
+		clog.InfoContext(ctx, "Skipping closed PR")
 		return nil
 	}
 
@@ -170,10 +169,10 @@ func reconcilePR(ctx context.Context, res *githubreconciler.Resource, gh *github
 		// Re-run if label was added since last run (agent wasn't enabled before but label is now present).
 		// This allows users to request agent assistance after seeing validation failures.
 		if observed.Details.AgentEnabled || !hasAutofixLabel {
-			log.Infof("Already processed generation %s, skipping", generation[:8])
+			clog.InfoContextf(ctx, "Already processed generation %s, skipping", generation[:8])
 			return nil
 		}
-		log.Infof("Label %q added since last run, re-processing", cfg.AutofixLabel)
+		clog.InfoContextf(ctx, "Label %q added since last run, re-processing", cfg.AutofixLabel)
 	}
 
 	// Validate PR
@@ -199,7 +198,7 @@ func reconcilePR(ctx context.Context, res *githubreconciler.Resource, gh *github
 
 	// Check if the autofix label is present
 	if !hasAutofixLabel {
-		log.Infof("Skipping agent - %q label not present", cfg.AutofixLabel)
+		clog.InfoContextf(ctx, "Skipping agent - %q label not present", cfg.AutofixLabel)
 		return session.SetActualState(ctx, fmt.Sprintf("Found %d issue(s) - add %q label to auto-fix", len(issues), cfg.AutofixLabel), &statusmanager.Status[prvalidation.Details]{
 			Status:     "completed",
 			Conclusion: "failure",
@@ -215,7 +214,7 @@ func reconcilePR(ctx context.Context, res *githubreconciler.Resource, gh *github
 		fixAttempts = observed.Details.FixAttempts
 	}
 	if fixAttempts >= cfg.MaxFixAttempts {
-		log.Infof("Max fix attempts (%d) reached, failing", cfg.MaxFixAttempts)
+		clog.InfoContextf(ctx, "Max fix attempts (%d) reached, failing", cfg.MaxFixAttempts)
 		return session.SetActualState(ctx, "Max fix attempts reached", &statusmanager.Status[prvalidation.Details]{
 			Status:     "completed",
 			Conclusion: "failure",
@@ -238,7 +237,7 @@ func reconcilePR(ctx context.Context, res *githubreconciler.Resource, gh *github
 	// Fetch changed files to give agent more context
 	changedFiles, err := getChangedFiles(ctx, gh, res.Owner, res.Repo, res.Number)
 	if err != nil {
-		log.With("error", err).Warn("Failed to fetch changed files, continuing without them")
+		clog.FromContext(ctx).With("error", err).Warn("Failed to fetch changed files, continuing without them")
 		changedFiles = nil
 	}
 
@@ -247,7 +246,7 @@ func reconcilePR(ctx context.Context, res *githubreconciler.Resource, gh *github
 	prTools := NewPRTools(gh, res.Owner, res.Repo, res.Number)
 	result, err := agent.Execute(ctx, prContext, prTools)
 	if err != nil {
-		log.With("error", err).Error("Agent execution failed")
+		clog.FromContext(ctx).With("error", err).Error("Agent execution failed")
 		return session.SetActualState(ctx, "Agent failed", &statusmanager.Status[prvalidation.Details]{
 			Status:     "completed",
 			Conclusion: "failure",
