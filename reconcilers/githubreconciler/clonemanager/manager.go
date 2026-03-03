@@ -27,7 +27,13 @@ import (
 
 const cloneDirPrefix = "clonemanager-clone-"
 
-const gitFetchDepth = 1
+const (
+	gitFetchDepth = 1
+
+	// leaseRefFetchDepth is the fetch depth used by LeaseRef. This is deeper
+	// than the default to support commit history walking (e.g., list_commits).
+	leaseRefFetchDepth = 100
+)
 
 // repoURL resolves the remote git URL for a githubreconciler.Resource. Tests
 // can override this to provide local filesystem paths by assigning a custom
@@ -104,14 +110,19 @@ func (m *Manager) Lease(ctx context.Context, res *githubreconciler.Resource) (*L
 		ref = res.Ref
 	}
 
-	return m.LeaseRef(ctx, res, ref)
+	return m.leaseRef(ctx, res, ref, gitFetchDepth)
 }
 
 // LeaseRef hydrates a clone for the supplied GitHub resource at the specified
 // ref and returns a Lease handle. The ref can be a branch name (e.g., "main",
-// "feature-branch") that will be fetched and checked out.
+// "feature-branch") that will be fetched and checked out. It fetches with
+// enough depth to support commit history walking.
 // Callers must invoke Return to release the clone back to the pool.
 func (m *Manager) LeaseRef(ctx context.Context, res *githubreconciler.Resource, ref string) (*Lease, error) {
+	return m.leaseRef(ctx, res, ref, leaseRefFetchDepth)
+}
+
+func (m *Manager) leaseRef(ctx context.Context, res *githubreconciler.Resource, ref string, depth int) (*Lease, error) {
 	if res == nil {
 		return nil, errors.New("resource cannot be nil")
 	}
@@ -145,7 +156,7 @@ func (m *Manager) LeaseRef(ctx context.Context, res *githubreconciler.Resource, 
 		return nil, err
 	}
 
-	sha, exists, err := m.prepareClone(ctx, cl, ref, res)
+	sha, exists, err := m.prepareClone(ctx, cl, ref, res, depth)
 	if err != nil {
 		clog.FromContext(ctx).Warnf("Discarding clone after prepare failure: %v", err)
 		m.discardClone(cl)
@@ -214,7 +225,7 @@ func (m *Manager) createClone(ctx context.Context, ref string, res *githubreconc
 	return &clone{path: dir, repo: repo}, nil
 }
 
-func (m *Manager) prepareClone(ctx context.Context, cl *clone, ref string, res *githubreconciler.Resource) (string, bool, error) {
+func (m *Manager) prepareClone(ctx context.Context, cl *clone, ref string, res *githubreconciler.Resource, depth int) (string, bool, error) {
 	repo := cl.repo
 	if repo == nil {
 		var err error
@@ -247,7 +258,7 @@ func (m *Manager) prepareClone(ctx context.Context, cl *clone, ref string, res *
 	fetchOpts := &git.FetchOptions{
 		RefSpecs: []gitconfig.RefSpec{gitconfig.RefSpec(fmt.Sprintf("+%s:%s", resolveRefName(ref), dst))},
 		Auth:     auth,
-		Depth:    gitFetchDepth,
+		Depth:    depth,
 	}
 
 	clog.FromContext(ctx).Infof("Fetching ref %s", ref)
