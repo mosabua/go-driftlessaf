@@ -381,8 +381,8 @@ func TestBenchmark(t *testing.T) {
 			// Run each test case
 			for _, tc := range testCases {
 				t.Run(tc.Name, func(t *testing.T) {
-					// Run each test case in parallel (this may offend quotas)
-					t.Parallel()
+					// Don't run in parallel to avoid overwhelming API quotas
+					// t.Parallel()
 					t.Cleanup(wg.Done)
 					// Create a child observer for this test case
 					testObs := modelObs.Child(tc.Name)
