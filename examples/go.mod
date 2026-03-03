@@ -252,6 +252,6 @@ require (
 
 replace chainguard.dev/driftlessaf => ../
 
-replace chainguard.dev/sdk => ../../../sdk
+replace chainguard.dev/sdk => ../../../public/sdk
 
 replace github.com/chainguard-dev/terraform-infra-common => ../../terraform-infra-common

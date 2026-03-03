@@ -274,6 +274,6 @@ require (
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
-replace chainguard.dev/sdk => ../../sdk
+replace chainguard.dev/sdk => ../../public/sdk
 
 replace github.com/chainguard-dev/terraform-infra-common => ../terraform-infra-common
