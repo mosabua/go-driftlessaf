@@ -83,7 +83,7 @@ func (r *Resource) String() string {
 }
 
 // addJitter adds random jitter to a duration to avoid thundering herd.
-// Jitter is 0% to +10% of the base duration.
+// Jitter is 0% to +100% of the base duration.
 //
 //nolint:gosec // Using weak random for jitter is fine, not cryptographic
 func addJitter(d time.Duration) time.Duration {
