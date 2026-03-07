@@ -27,7 +27,7 @@ func WithMaxTokens[Request promptbuilder.Bindable, Response any](tokens int64) O
 		if tokens <= 0 {
 			return fmt.Errorf("max tokens must be positive, got %d", tokens)
 		}
-		if tokens > 32000 { // Maximum for Opus
+		if tokens > 32000 { // Maximum output tokens for Claude models on Vertex AI
 			return fmt.Errorf("max tokens %d exceeds maximum of 32000", tokens)
 		}
 		e.maxTokens = tokens

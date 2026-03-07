@@ -92,6 +92,15 @@ func (e *executor[Request, Response]) Execute(
 ) (resp Response, err error) {
 	log := clog.FromContext(ctx)
 
+	// Guard against incompatible combination: thinking mode + seed tool calls.
+	// When ThinkingConfig is set, Gemini requires that model turns with FunctionCall
+	// parts also include Thought parts. Synthetic seed turns have no Thought parts,
+	// causing a Vertex AI API validation error.
+	if e.thinkingBudget != nil && len(seedToolCalls) > 0 {
+		return resp, errors.New("seed tool calls cannot be used with thinking mode: " +
+			"synthetic function call history is missing required thought blocks")
+	}
+
 	// Bind the request to the prompt
 	boundPrompt, err := request.Bind(e.prompt)
 	if err != nil {

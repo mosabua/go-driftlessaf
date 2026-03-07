@@ -55,8 +55,9 @@ func WithMaxOutputTokens[Request promptbuilder.Bindable, Response any](tokens in
 			return fmt.Errorf("max output tokens must be positive, got %d", tokens)
 		}
 		// Gemini models support up to 8192 tokens by default, some support more
-		if tokens > 32768 {
-			return fmt.Errorf("max output tokens %d exceeds maximum of 32768", tokens)
+		// Gemini 3.1 Pro supports up to 65536 output tokens
+		if tokens > 65536 {
+			return fmt.Errorf("max output tokens %d exceeds maximum of 65536", tokens)
 		}
 		e.maxOutputTokens = tokens
 		return nil
