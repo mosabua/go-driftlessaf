@@ -84,7 +84,7 @@ func RetryWithBackoff[T any](ctx context.Context, cfg RetryConfig, operation str
 	var result T
 	var lastErr error
 
-	for attempt := 0; attempt <= cfg.MaxRetries; attempt++ {
+	for attempt := range cfg.MaxRetries + 1 {
 		result, lastErr = fn()
 		if lastErr == nil {
 			return result, nil

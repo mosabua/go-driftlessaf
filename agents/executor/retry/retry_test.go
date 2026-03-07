@@ -34,7 +34,7 @@ func alwaysRetryable(err error) bool {
 func TestRetryWithBackoff_Success(t *testing.T) {
 	t.Parallel()
 	var attempts atomic.Int32
-	result, err := retry.RetryWithBackoff(context.Background(), testRetryConfig(), "test_op", alwaysRetryable, func() (string, error) {
+	result, err := retry.RetryWithBackoff(t.Context(), testRetryConfig(), "test_op", alwaysRetryable, func() (string, error) {
 		attempts.Add(1)
 		return "ok", nil
 	})
@@ -54,7 +54,7 @@ func TestRetryWithBackoff_SuccessAfterRetries(t *testing.T) {
 	var attempts atomic.Int32
 	retryableErr := errors.New("429 RESOURCE_EXHAUSTED")
 
-	result, err := retry.RetryWithBackoff(context.Background(), testRetryConfig(), "test_op", alwaysRetryable, func() (string, error) {
+	result, err := retry.RetryWithBackoff(t.Context(), testRetryConfig(), "test_op", alwaysRetryable, func() (string, error) {
 		n := attempts.Add(1)
 		if n < 3 {
 			return "", retryableErr
@@ -79,7 +79,7 @@ func TestRetryWithBackoff_ExhaustedRetries(t *testing.T) {
 	retryableErr := errors.New("Resource exhausted: quota exceeded")
 
 	var attempts atomic.Int32
-	_, err := retry.RetryWithBackoff(context.Background(), cfg, "test_op", alwaysRetryable, func() (string, error) {
+	_, err := retry.RetryWithBackoff(t.Context(), cfg, "test_op", alwaysRetryable, func() (string, error) {
 		attempts.Add(1)
 		return "", retryableErr
 	})
@@ -112,7 +112,7 @@ func TestRetryWithBackoff_NonRetryableError(t *testing.T) {
 	}
 
 	var attempts atomic.Int32
-	_, err := retry.RetryWithBackoff(context.Background(), testRetryConfig(), "test_op", isRetryable, func() (string, error) {
+	_, err := retry.RetryWithBackoff(t.Context(), testRetryConfig(), "test_op", isRetryable, func() (string, error) {
 		attempts.Add(1)
 		return "", permErr
 	})
@@ -130,7 +130,7 @@ func TestRetryWithBackoff_NonRetryableError(t *testing.T) {
 
 func TestRetryWithBackoff_ContextCancellation(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	retryableErr := errors.New("429 rate limit exceeded")
 
 	var attempts atomic.Int32
@@ -158,7 +158,7 @@ func TestRetryWithBackoff_ZeroRetries(t *testing.T) {
 	retryableErr := errors.New("429 RESOURCE_EXHAUSTED")
 
 	var attempts atomic.Int32
-	_, err := retry.RetryWithBackoff(context.Background(), cfg, "test_op", alwaysRetryable, func() (string, error) {
+	_, err := retry.RetryWithBackoff(t.Context(), cfg, "test_op", alwaysRetryable, func() (string, error) {
 		attempts.Add(1)
 		return "", retryableErr
 	})
