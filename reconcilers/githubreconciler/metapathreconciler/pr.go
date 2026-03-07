@@ -78,7 +78,7 @@ func (r *Reconciler[Req, Resp, CB]) reconcilePullRequest(ctx context.Context, re
 			}
 		}
 
-		path := strings.TrimPrefix(branch, prefix)
+		path := githubreconciler.BranchSuffixToPath(strings.TrimPrefix(branch, prefix))
 		base := pr.GetBase().GetRef()
 		pathURL := fmt.Sprintf("https://github.com/%s/%s/blob/%s/%s", res.Owner, res.Repo, base, path)
 

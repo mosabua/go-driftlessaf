@@ -211,7 +211,7 @@ func (cm *CM[T]) NewSession(
 	var branchName, ref string
 	switch res.Type {
 	case githubreconciler.ResourceTypePath:
-		branchName = cm.identity + "/" + res.Path
+		branchName = cm.identity + "/" + githubreconciler.PathToBranchSuffix(res.Path)
 		ref = res.Ref
 	case githubreconciler.ResourceTypeIssue:
 		branchName = cm.identity + "/issue-" + strconv.Itoa(res.Number)

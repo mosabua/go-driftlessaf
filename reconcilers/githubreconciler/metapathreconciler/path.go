@@ -79,7 +79,7 @@ func (r *Reconciler[Req, Resp, CB]) reconcilePath(ctx context.Context, res *gith
 	// - Otherwise (no PR, needs rebase, or fresh run): lease default branch
 	var lease *clonemanager.Lease
 	if usePRBranch {
-		branchName := r.identity + "/" + res.Path
+		branchName := r.identity + "/" + githubreconciler.PathToBranchSuffix(res.Path)
 		log.With("branch", branchName).Info("Acquiring clone lease for pull request branch")
 		lease, err = cloneMgr.LeaseRef(ctx, res, branchName)
 	} else {
