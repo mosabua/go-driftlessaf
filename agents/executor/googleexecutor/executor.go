@@ -255,6 +255,9 @@ func (e *executor[Request, Response]) Execute(
 		return chat.Send(ctx, history[len(history)-1].Parts...)
 	})
 	if err != nil {
+		if requeueErr := retry.RequeueIfRetryable(ctx, err, isRetryableVertexError, "Vertex AI"); requeueErr != nil {
+			return resp, requeueErr
+		}
 		return resp, fmt.Errorf("failed to send final message: %w", err)
 	}
 
@@ -293,6 +296,9 @@ func (e *executor[Request, Response]) Execute(
 				return chat.SendMessage(ctx, retryMsg)
 			})
 			if err != nil {
+				if requeueErr := retry.RequeueIfRetryable(ctx, err, isRetryableVertexError, "Vertex AI"); requeueErr != nil {
+					return resp, requeueErr
+				}
 				return resp, fmt.Errorf("failed to send retry message after malformed function call: %w", err)
 			}
 
@@ -391,6 +397,9 @@ func (e *executor[Request, Response]) Execute(
 				return chat.Send(ctx, toolResponseParts...)
 			})
 			if err != nil {
+				if requeueErr := retry.RequeueIfRetryable(ctx, err, isRetryableVertexError, "Vertex AI"); requeueErr != nil {
+					return resp, requeueErr
+				}
 				return resp, fmt.Errorf("failed to send tool responses: %w", err)
 			}
 

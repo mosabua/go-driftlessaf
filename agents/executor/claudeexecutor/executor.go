@@ -278,6 +278,12 @@ func (e *executor[Request, Response]) Execute(
 			return msg, nil
 		})
 		if err != nil {
+			// If the error is a retryable Claude API error (429, 503, 504, 529) that
+			// exhausted inner retries, signal the workqueue to back off instead of
+			// immediately retrying — avoids contributing to API overload.
+			if requeueErr := retry.RequeueIfRetryable(ctx, err, isRetryableClaudeError, "Claude API"); requeueErr != nil {
+				return response, requeueErr
+			}
 			return response, fmt.Errorf("failed to stream Claude response: %w", err)
 		}
 

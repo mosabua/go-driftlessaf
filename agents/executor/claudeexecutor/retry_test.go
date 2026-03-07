@@ -20,6 +20,7 @@ func TestIsRetryableClaudeError(t *testing.T) {
 		err  error
 		want bool
 	}{
+		// Structured API errors (*anthropic.Error)
 		{name: "nil error", err: nil, want: false},
 		{name: "non-API error", err: fmt.Errorf("connection refused"), want: false},
 		{name: "429 rate limit", err: &anthropic.Error{StatusCode: 429}, want: true},
@@ -31,6 +32,12 @@ func TestIsRetryableClaudeError(t *testing.T) {
 		{name: "403 forbidden", err: &anthropic.Error{StatusCode: 403}, want: false},
 		{name: "404 not found", err: &anthropic.Error{StatusCode: 404}, want: false},
 		{name: "500 internal error", err: &anthropic.Error{StatusCode: 500}, want: false},
+		// SSE streaming errors (plain fmt.Errorf with raw JSON from ssestream package)
+		{name: "streaming overloaded_error", err: fmt.Errorf(`received error while streaming: {"type":"error","error":{"details":null,"type":"overloaded_error","message":"Overloaded"},"request_id":"req_vrtx_011CYejFMV3t43MQ1E377Xn9"}`), want: true},
+		{name: "streaming rate_limit_error", err: fmt.Errorf(`received error while streaming: {"type":"error","error":{"type":"rate_limit_error","message":"Rate limited"}}`), want: true},
+		{name: "streaming api_error", err: fmt.Errorf(`received error while streaming: {"type":"error","error":{"type":"api_error","message":"Internal server error"}}`), want: true},
+		{name: "streaming invalid_request", err: fmt.Errorf(`received error while streaming: {"type":"error","error":{"type":"invalid_request_error","message":"Bad input"}}`), want: false},
+		{name: "streaming authentication_error", err: fmt.Errorf(`received error while streaming: {"type":"error","error":{"type":"authentication_error","message":"Invalid key"}}`), want: false},
 	}
 
 	for _, tt := range tests {
@@ -40,5 +47,18 @@ func TestIsRetryableClaudeError(t *testing.T) {
 				t.Errorf("isRetryableClaudeError(%v) = %v, want %v", tt.err, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestIsRetryableClaudeError_WrappedError(t *testing.T) {
+	t.Parallel()
+
+	// Simulates the error wrapping from retry.RetryWithBackoff:
+	// "stream_message failed after 5 retries: <original error>"
+	original := &anthropic.Error{StatusCode: 429}
+	wrapped := fmt.Errorf("stream_message failed after 5 retries: %w", original)
+
+	if !isRetryableClaudeError(wrapped) {
+		t.Error("isRetryableClaudeError() = false, want true for wrapped 429 error")
 	}
 }

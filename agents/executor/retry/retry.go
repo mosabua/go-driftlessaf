@@ -13,8 +13,27 @@ import (
 	"math/big"
 	"time"
 
+	"chainguard.dev/driftlessaf/workqueue"
 	"github.com/chainguard-dev/clog"
 )
+
+// LLMBackoffDelay is the base delay for requeueing work after LLM API
+// errors exhaust inner retries. This prevents the workqueue from
+// immediately retrying and contributing to API overload.
+const LLMBackoffDelay = 5 * time.Minute
+
+// RequeueIfRetryable checks whether err is a retryable LLM API error and,
+// if so, returns a workqueue.RequeueAfter to signal the workqueue to back off
+// instead of immediately retrying. If the error is not retryable, it returns nil
+// and the caller should handle the error normally.
+func RequeueIfRetryable(ctx context.Context, err error, isRetryable func(error) bool, provider string) error {
+	if isRetryable(err) {
+		clog.FromContext(ctx).With("error", err).
+			Warnf("%s error exhausted retries, requeueing with backoff", provider)
+		return workqueue.RequeueAfter(LLMBackoffDelay)
+	}
+	return nil
+}
 
 // RetryConfig configures retry behavior for API calls.
 // This is particularly useful for handling rate limit and transient server errors.

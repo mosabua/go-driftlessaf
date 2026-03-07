@@ -7,6 +7,7 @@ package googleexecutor
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 )
 
@@ -40,5 +41,18 @@ func TestIsRetryableVertexError(t *testing.T) {
 				t.Errorf("isRetryableVertexError(%v) = %v, want %v", tt.err, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestIsRetryableVertexError_WrappedError(t *testing.T) {
+	t.Parallel()
+
+	// Simulates the error wrapping from retry.RetryWithBackoff:
+	// "send_initial_message failed after 5 retries: <original error>"
+	original := errors.New("rpc error: code = ResourceExhausted desc = 429")
+	wrapped := fmt.Errorf("send_initial_message failed after 5 retries: %w", original)
+
+	if !isRetryableVertexError(wrapped) {
+		t.Error("isRetryableVertexError() = false, want true for wrapped ResourceExhausted error")
 	}
 }

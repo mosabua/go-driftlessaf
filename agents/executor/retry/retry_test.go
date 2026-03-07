@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"chainguard.dev/driftlessaf/agents/executor/retry"
+	"chainguard.dev/driftlessaf/workqueue"
 )
 
 func testRetryConfig() retry.RetryConfig {
@@ -166,6 +167,35 @@ func TestRetryWithBackoff_ZeroRetries(t *testing.T) {
 	}
 	if got := attempts.Load(); got != 1 {
 		t.Fatalf("expected 1 attempt (no retries), got %d", got)
+	}
+}
+
+func TestRequeueIfRetryable_RetryableError(t *testing.T) {
+	t.Parallel()
+	retryableErr := errors.New("429 rate limit")
+	isRetryable := func(err error) bool { return errors.Is(err, retryableErr) }
+
+	got := retry.RequeueIfRetryable(t.Context(), retryableErr, isRetryable, "TestProvider")
+	if got == nil {
+		t.Fatal("RequeueIfRetryable() = nil, want RequeueAfter error")
+	}
+	delay, ok := workqueue.GetRequeueDelay(got)
+	if !ok {
+		t.Fatal("GetRequeueDelay() ok = false, want true")
+	}
+	if delay != retry.LLMBackoffDelay {
+		t.Errorf("RequeueAfter delay = %v, want %v", delay, retry.LLMBackoffDelay)
+	}
+}
+
+func TestRequeueIfRetryable_NonRetryableError(t *testing.T) {
+	t.Parallel()
+	permErr := errors.New("permission denied")
+	isRetryable := func(error) bool { return false }
+
+	got := retry.RequeueIfRetryable(t.Context(), permErr, isRetryable, "TestProvider")
+	if got != nil {
+		t.Errorf("RequeueIfRetryable() = %v, want nil", got)
 	}
 }
 
