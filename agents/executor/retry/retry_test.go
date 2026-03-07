@@ -39,13 +39,13 @@ func TestRetryWithBackoff_Success(t *testing.T) {
 		return "ok", nil
 	})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("error: got = %v, want = nil", err)
 	}
 	if result != "ok" {
-		t.Fatalf("expected result %q, got %q", "ok", result)
+		t.Fatalf("result: got = %q, want = %q", result, "ok")
 	}
 	if got := attempts.Load(); got != 1 {
-		t.Fatalf("expected 1 attempt, got %d", got)
+		t.Fatalf("attempts: got = %d, want = 1", got)
 	}
 }
 
@@ -62,13 +62,13 @@ func TestRetryWithBackoff_SuccessAfterRetries(t *testing.T) {
 		return "recovered", nil
 	})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("error: got = %v, want = nil", err)
 	}
 	if result != "recovered" {
-		t.Fatalf("expected result %q, got %q", "recovered", result)
+		t.Fatalf("result: got = %q, want = %q", result, "recovered")
 	}
 	if got := attempts.Load(); got != 3 {
-		t.Fatalf("expected 3 attempts, got %d", got)
+		t.Fatalf("attempts: got = %d, want = 3", got)
 	}
 }
 
@@ -84,21 +84,21 @@ func TestRetryWithBackoff_ExhaustedRetries(t *testing.T) {
 		return "", retryableErr
 	})
 	if err == nil {
-		t.Fatal("expected error after exhausted retries")
+		t.Fatal("error: got = nil, want = non-nil after exhausted retries")
 	}
 
 	// Should have made MaxRetries+1 total attempts
 	if got := attempts.Load(); got != 4 {
-		t.Fatalf("expected 4 attempts (1 initial + 3 retries), got %d", got)
+		t.Fatalf("attempts: got = %d, want = 4 (1 initial + 3 retries)", got)
 	}
 
 	// Error should be wrapped with operation context
 	if !errors.Is(err, retryableErr) {
-		t.Fatalf("expected wrapped error to contain original, got: %v", err)
+		t.Fatalf("wrapped error: got = %v, want = error containing original", err)
 	}
 	expected := fmt.Sprintf("test_op failed after %d retries", cfg.MaxRetries)
 	if got := err.Error(); got[:len(expected)] != expected {
-		t.Fatalf("expected error to start with %q, got %q", expected, got)
+		t.Fatalf("error prefix: got = %q, want = %q", got[:len(expected)], expected)
 	}
 }
 
@@ -117,14 +117,14 @@ func TestRetryWithBackoff_NonRetryableError(t *testing.T) {
 		return "", permErr
 	})
 	if err == nil {
-		t.Fatal("expected error for non-retryable failure")
+		t.Fatal("error: got = nil, want = non-nil for non-retryable failure")
 	}
 	if !errors.Is(err, permErr) {
-		t.Fatalf("expected original error, got: %v", err)
+		t.Fatalf("error: got = %v, want = original error", err)
 	}
 	// Should stop immediately without retrying
 	if got := attempts.Load(); got != 1 {
-		t.Fatalf("expected 1 attempt (no retries for non-retryable error), got %d", got)
+		t.Fatalf("attempts: got = %d, want = 1 (no retries for non-retryable error)", got)
 	}
 }
 
@@ -144,10 +144,10 @@ func TestRetryWithBackoff_ContextCancellation(t *testing.T) {
 		return "", retryableErr
 	})
 	if err == nil {
-		t.Fatal("expected error on context cancellation")
+		t.Fatal("error: got = nil, want = non-nil on context cancellation")
 	}
 	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("expected context.Canceled, got: %v", err)
+		t.Fatalf("error: got = %v, want = context.Canceled", err)
 	}
 }
 
@@ -163,10 +163,10 @@ func TestRetryWithBackoff_ZeroRetries(t *testing.T) {
 		return "", retryableErr
 	})
 	if err == nil {
-		t.Fatal("expected error with zero retries")
+		t.Fatal("error: got = nil, want = non-nil with zero retries")
 	}
 	if got := attempts.Load(); got != 1 {
-		t.Fatalf("expected 1 attempt (no retries), got %d", got)
+		t.Fatalf("attempts: got = %d, want = 1 (no retries)", got)
 	}
 }
 
