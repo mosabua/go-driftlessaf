@@ -135,17 +135,27 @@ func ToolCallNamed[T any](name string, validator func(o Observer, tc *agenttrace
 }
 
 // NoErrors returns an ObservableTraceCallback that validates no tool calls resulted in errors.
-func NoErrors[T any]() ObservableTraceCallback[T] {
+// Optional ignore functions can be provided to filter out expected errors (e.g., file not found).
+// If any ignore function returns true for a given error, that error is skipped.
+func NoErrors[T any](ignore ...func(error) bool) ObservableTraceCallback[T] {
+	shouldIgnore := func(err error) bool {
+		for _, fn := range ignore {
+			if fn(err) {
+				return true
+			}
+		}
+		return false
+	}
 	return func(o Observer, trace *agenttrace.Trace[T]) {
 		// Check trace error
-		if trace.Error != nil {
+		if trace.Error != nil && !shouldIgnore(trace.Error) {
 			o.Fail(fmt.Sprintf("trace error: got = %v, wanted = nil", trace.Error))
 			return
 		}
 
 		// Check tool call errors
 		for _, tc := range trace.ToolCalls {
-			if tc.Error != nil {
+			if tc.Error != nil && !shouldIgnore(tc.Error) {
 				o.Fail(fmt.Sprintf("tool call %s error: got = %v, wanted = nil", tc.Name, tc.Error))
 				return
 			}

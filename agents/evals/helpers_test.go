@@ -235,6 +235,39 @@ func TestNoErrors(t *testing.T) {
 	if len(obs.failures) == 0 {
 		t.Errorf("expected failure for tool call error")
 	}
+
+	// Test with ignored tool call error
+	obs = &mockObserver{}
+	ignoreRead := func(err error) bool {
+		return strings.Contains(err.Error(), "read failed")
+	}
+	callbackWithIgnore := evals.NoErrors[string](ignoreRead)
+	callbackWithIgnore(obs, trace)
+	if len(obs.failures) > 0 {
+		t.Errorf("unexpected failure with ignored error: %v", obs.failures)
+	}
+
+	// Test with ignored trace error
+	obs = &mockObserver{}
+	trace = &agenttrace.Trace[string]{
+		Error: errors.New("read failed"),
+	}
+	callbackWithIgnore(obs, trace)
+	if len(obs.failures) > 0 {
+		t.Errorf("unexpected failure with ignored trace error: %v", obs.failures)
+	}
+
+	// Test that non-matching errors still fail with ignore
+	obs = &mockObserver{}
+	trace = &agenttrace.Trace[string]{
+		ToolCalls: []*agenttrace.ToolCall[string]{
+			{Name: "write_file", Error: errors.New("write failed")},
+		},
+	}
+	callbackWithIgnore(obs, trace)
+	if len(obs.failures) == 0 {
+		t.Errorf("expected failure for non-ignored error")
+	}
 }
 
 func TestToolCallValidator(t *testing.T) {
