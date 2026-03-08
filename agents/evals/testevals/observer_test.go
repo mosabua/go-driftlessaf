@@ -6,7 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 package testevals_test
 
 import (
-	"context"
 	"errors"
 	"testing"
 
@@ -45,8 +44,7 @@ func TestTestingObserver(t *testing.T) {
 	tracer := agenttrace.ByCode[string](traceCallback)
 
 	// Create and complete a successful trace - this will automatically invoke the callback
-	ctx := context.Background()
-	trace := tracer.NewTrace(ctx, "Test prompt")
+	trace := tracer.NewTrace(t.Context(), "Test prompt")
 	trace.Complete("test result", nil)
 }
 
@@ -74,8 +72,7 @@ func TestTestingObserverWithError(t *testing.T) {
 	tracer := agenttrace.ByCode[string](traceCallback)
 
 	// Create and complete a trace with error - this will automatically invoke the callback
-	ctx := context.Background()
-	trace := tracer.NewTrace(ctx, "Error test")
+	trace := tracer.NewTrace(t.Context(), "Error test")
 	trace.Complete("test result", errors.New("simulated error"))
 }
 
@@ -104,8 +101,7 @@ func TestTestingObserverWithInject(t *testing.T) {
 	tracer := agenttrace.ByCode[string](traceCallback)
 
 	// Create a trace with tool calls using proper tracer
-	ctx := context.Background()
-	trace := tracer.NewTrace(ctx, "Analyze logs")
+	trace := tracer.NewTrace(t.Context(), "Analyze logs")
 
 	// Add tool calls
 	tc1 := trace.StartToolCall("tc1", "read_logs", nil)

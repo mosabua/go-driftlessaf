@@ -6,7 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 package evals_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -63,8 +62,7 @@ func TestObservableTraceCallback(t *testing.T) {
 	tracer := agenttrace.ByCode[string](traceCallback)
 
 	// Create and complete a trace - this will automatically invoke the callback
-	ctx := context.Background()
-	trace := tracer.NewTrace(ctx, "Test prompt")
+	trace := tracer.NewTrace(t.Context(), "Test prompt")
 	trace.Complete("test result", nil)
 
 	// Verify the results
@@ -104,8 +102,7 @@ func TestObservableTraceCallbackWithError(t *testing.T) {
 	tracer := agenttrace.ByCode[string](traceCallback)
 
 	// Create and complete a trace with an error - this will automatically invoke the callback
-	ctx := context.Background()
-	trace := tracer.NewTrace(ctx, "Test prompt")
+	trace := tracer.NewTrace(t.Context(), "Test prompt")
 	trace.Complete("test result", errors.New("test error"))
 
 	// Verify the results

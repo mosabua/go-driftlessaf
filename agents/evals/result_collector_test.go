@@ -6,7 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 package evals_test
 
 import (
-	"context"
 	"errors"
 	"sync"
 	"testing"
@@ -179,10 +178,9 @@ func TestResultCollectorWithTraceCallback(t *testing.T) {
 
 	// Create tracer with the evaluation
 	tracer := agenttrace.ByCode[string](evals.Inject(collector, callback))
-	ctx := context.Background()
 
 	// Test with error trace
-	errorTrace := tracer.NewTrace(ctx, "test")
+	errorTrace := tracer.NewTrace(t.Context(), "test")
 	errorTrace.Complete("failed", errors.New("test error"))
 
 	// Check failures
@@ -192,7 +190,7 @@ func TestResultCollectorWithTraceCallback(t *testing.T) {
 	}
 
 	// Test with successful trace
-	successTrace := tracer.NewTrace(ctx, "test")
+	successTrace := tracer.NewTrace(t.Context(), "test")
 	tc := successTrace.StartToolCall("tc1", "read_logs", nil)
 	tc.Complete("log data", nil)
 	successTrace.Complete("success", nil)
