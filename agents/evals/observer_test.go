@@ -107,7 +107,7 @@ func TestObservableTraceCallbackWithError(t *testing.T) {
 
 	// Verify the results
 	if !obs.failed {
-		t.Error("Expected failure, but test did not fail")
+		t.Error("obs.failed: got = false, wanted = true")
 	}
 
 	if !strings.Contains(obs.failMsg, "Trace error:") {

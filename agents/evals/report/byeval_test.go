@@ -53,33 +53,33 @@ func TestByEval(t *testing.T) {
 
 	// Check that we got some report content
 	if reportStr == "" {
-		t.Error("Expected non-empty report string")
+		t.Error("reportStr: got = empty, wanted = non-empty")
 	}
 
 	// Verify report structure contains eval names in tree
 	if !strings.Contains(reportStr, "no-errors") {
-		t.Error("Expected report to contain 'no-errors' in tree")
+		t.Errorf("reportStr: got = %q, wanted to contain %q", reportStr, "no-errors")
 	}
 	if !strings.Contains(reportStr, "has-reasoning") {
-		t.Error("Expected report to contain 'has-reasoning' in tree")
+		t.Errorf("reportStr: got = %q, wanted to contain %q", reportStr, "has-reasoning")
 	}
 
 	// Verify report contains model names in tree
 	if !strings.Contains(reportStr, "claude") {
-		t.Error("Expected report to contain 'claude' in tree")
+		t.Errorf("reportStr: got = %q, wanted to contain %q", reportStr, "claude")
 	}
 	if !strings.Contains(reportStr, "gemini") {
-		t.Error("Expected report to contain 'gemini' in tree")
+		t.Errorf("reportStr: got = %q, wanted to contain %q", reportStr, "gemini")
 	}
 
 	// Verify report contains test case names in tree
 	if !strings.Contains(reportStr, "build-failure") {
-		t.Error("Expected report to contain 'build-failure' in tree")
+		t.Errorf("reportStr: got = %q, wanted to contain %q", reportStr, "build-failure")
 	}
 
 	// Should detect failures since we have some failing evaluations
 	if !hasFailure {
-		t.Error("Expected hasFailure to be true with failing evaluations")
+		t.Error("hasFailure: got = false, wanted = true")
 	}
 
 	// Print report for debugging
@@ -108,12 +108,12 @@ func TestByEvalNoFailures(t *testing.T) {
 
 	// Should not detect failures since all are passing
 	if hasFailure {
-		t.Error("Expected hasFailure to be false with all passing evaluations")
+		t.Error("hasFailure: got = true, wanted = false")
 	}
 
 	// Should still have eval name but no model/test case details (since they're all passing)
 	if !strings.Contains(reportStr, "eval1") {
-		t.Error("Expected report to contain 'eval1' in tree")
+		t.Errorf("reportStr: got = %q, wanted to contain %q", reportStr, "eval1")
 	}
 
 	// Print report for debugging
@@ -252,17 +252,17 @@ func TestByEvalGradeOnlyResults(t *testing.T) {
 
 	// Should detect failure due to low grade
 	if !hasFailure {
-		t.Error("Expected hasFailure to be true with grade below threshold")
+		t.Error("hasFailure: got = false, wanted = true")
 	}
 
 	// Should contain grade information in report
 	if !strings.Contains(reportStr, "avg") {
-		t.Error("Expected report to contain 'avg' for grade-only results")
+		t.Errorf("reportStr: got = %q, wanted to contain %q", reportStr, "avg")
 	}
 
 	// Should contain details about the low grade
 	if !strings.Contains(reportStr, "below threshold") {
-		t.Error("Expected report to contain grade reasoning")
+		t.Errorf("reportStr: got = %q, wanted to contain %q", reportStr, "below threshold")
 	}
 }
 
@@ -334,51 +334,51 @@ func TestByEvalSummaryTable(t *testing.T) {
 
 	// Should detect failures due to low grades
 	if !hasFailure {
-		t.Error("Expected hasFailure to be true with grades below threshold")
+		t.Error("hasFailure: got = false, wanted = true")
 	}
 
 	// Verify summary table is present
 	if !strings.Contains(reportStr, "## Summary Table") {
-		t.Error("Expected report to contain '## Summary Table' header")
+		t.Errorf("reportStr: got = %q, wanted to contain %q", reportStr, "## Summary Table")
 	}
 
 	// Verify table structure
 	if !strings.Contains(reportStr, "| Evaluation Metric") {
-		t.Error("Expected report to contain table header")
+		t.Errorf("reportStr: got = %q, wanted to contain %q", reportStr, "| Evaluation Metric")
 	}
 
 	// Verify hierarchical structure with indentation
 	if !strings.Contains(reportStr, "├─ clarity_confusing") {
-		t.Error("Expected report to contain hierarchical indentation with ├─")
+		t.Errorf("reportStr: got = %q, wanted to contain %q", reportStr, "├─ clarity_confusing")
 	}
 	if !strings.Contains(reportStr, "└─") {
-		t.Error("Expected report to contain hierarchical indentation with └─")
+		t.Errorf("reportStr: got = %q, wanted to contain %q", reportStr, "└─")
 	}
 
 	// Verify red cross marks for values below threshold
 	if !strings.Contains(reportStr, "❌") {
-		t.Error("Expected report to contain red cross marks for values below threshold")
+		t.Errorf("reportStr: got = %q, wanted to contain %q", reportStr, "❌")
 	}
 
 	// Verify both target evaluations are present
 	if !strings.Contains(reportStr, "judge-reasoning") {
-		t.Error("Expected report to contain judge-reasoning evaluation")
+		t.Errorf("reportStr: got = %q, wanted to contain %q", reportStr, "judge-reasoning")
 	}
 	if !strings.Contains(reportStr, "judge-suggestions") {
-		t.Error("Expected report to contain judge-suggestions evaluation")
+		t.Errorf("reportStr: got = %q, wanted to contain %q", reportStr, "judge-suggestions")
 	}
 
 	// Verify model columns are present
 	if !strings.Contains(reportStr, "gpt-4o") {
-		t.Error("Expected report to contain gpt-4o model column")
+		t.Errorf("reportStr: got = %q, wanted to contain %q", reportStr, "gpt-4o")
 	}
 	if !strings.Contains(reportStr, "gpt-4o-mini") {
-		t.Error("Expected report to contain gpt-4o-mini model column")
+		t.Errorf("reportStr: got = %q, wanted to contain %q", reportStr, "gpt-4o-mini")
 	}
 
 	// Verify average column is present
 	if !strings.Contains(reportStr, "Average") {
-		t.Error("Expected report to contain Average column")
+		t.Errorf("reportStr: got = %q, wanted to contain %q", reportStr, "Average")
 	}
 
 	// Print report for debugging
