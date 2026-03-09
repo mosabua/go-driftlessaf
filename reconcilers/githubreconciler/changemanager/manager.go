@@ -450,7 +450,7 @@ func (cm *CM[T]) collectFindings(
 
 	// Paginate through remaining check suites if needed
 	if initialSuites.PageInfo.HasNextPage {
-		cm.paginateCheckSuites(ctx, gqlClient, owner, repo, sha, initialSuites.PageInfo.EndCursor, processFailedRuns, processPendingRuns)
+		paginateCheckSuites(ctx, gqlClient, owner, repo, sha, initialSuites.PageInfo.EndCursor, processFailedRuns, processPendingRuns)
 	}
 
 	return findings, pendingChecks
@@ -535,7 +535,7 @@ func paginatePendingRuns(
 }
 
 // paginateCheckSuites fetches additional check suites for a commit.
-func (cm *CM[T]) paginateCheckSuites(
+func paginateCheckSuites(
 	ctx context.Context,
 	gqlClient *graphqlclient.GraphQLClient,
 	owner, repo, sha, cursor string,
