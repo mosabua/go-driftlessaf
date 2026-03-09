@@ -37,6 +37,7 @@ func newClaudeAgent[Req promptbuilder.Bindable, Resp, CB any](
 		claudeexecutor.WithTemperature[Req, Resp](0.2),
 		claudeexecutor.WithMaxTokens[Req, Resp](32000),
 		claudeexecutor.WithSubmitResultProvider[Req, Resp](submitresult.ClaudeToolForResponse[Resp]),
+		claudeexecutor.WithResourceLabels[Req, Resp](map[string]string{"projectID": projectID, "region": region}),
 	}
 
 	if config.SystemInstructions != nil {
