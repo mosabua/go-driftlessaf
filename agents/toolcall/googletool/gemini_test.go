@@ -508,7 +508,7 @@ func TestErrorWithContext_ErrorNil(t *testing.T) {
 	if resp := got.Response; resp != nil {
 		if errorMsg, ok := resp["error"].(string); ok {
 			if errorMsg != "<nil>" {
-				t.Errorf("Expected error message to be '<nil>' for nil error, got %s", errorMsg)
+				t.Errorf("error message: got %s, want <nil>", errorMsg)
 			}
 		}
 	}

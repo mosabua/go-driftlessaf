@@ -101,16 +101,47 @@ func TestParams_Get(t *testing.T) {
 		paramName string
 		wantValue any
 		wantOk    bool
-	}{
-		{"existing string", "string", "hello", true},
-		{"existing number", "number", float64(42), true},
-		{"existing float", "float", float64(3.14), true},
-		{"existing bool", "bool", true, true},
-		{"existing null", "null", nil, true},
-		{"existing object", "object", map[string]any{"nested": "value"}, true},
-		{"existing array", "array", []any{float64(1), float64(2), float64(3)}, true},
-		{"non-existing key", "missing", nil, false},
-	}
+	}{{
+		name:      "existing string",
+		paramName: "string",
+		wantValue: "hello",
+		wantOk:    true,
+	}, {
+		name:      "existing number",
+		paramName: "number",
+		wantValue: float64(42),
+		wantOk:    true,
+	}, {
+		name:      "existing float",
+		paramName: "float",
+		wantValue: float64(3.14),
+		wantOk:    true,
+	}, {
+		name:      "existing bool",
+		paramName: "bool",
+		wantValue: true,
+		wantOk:    true,
+	}, {
+		name:      "existing null",
+		paramName: "null",
+		wantValue: nil,
+		wantOk:    true,
+	}, {
+		name:      "existing object",
+		paramName: "object",
+		wantValue: map[string]any{"nested": "value"},
+		wantOk:    true,
+	}, {
+		name:      "existing array",
+		paramName: "array",
+		wantValue: []any{float64(1), float64(2), float64(3)},
+		wantOk:    true,
+	}, {
+		name:      "non-existing key",
+		paramName: "missing",
+		wantValue: nil,
+		wantOk:    false,
+	}}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

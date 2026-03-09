@@ -69,8 +69,6 @@ func historyToolDefs[Resp any](cb callbacks.HistoryCallbacks) map[string]Tool[Re
 				}},
 			},
 			Handler: func(ctx context.Context, call ToolCall, trace *agenttrace.Trace[Resp], _ *Resp) map[string]any {
-				log := clog.FromContext(ctx)
-
 				offset, errResp := OptionalParam[int](call, "offset", 0)
 				if errResp != nil {
 					return errResp
@@ -87,7 +85,7 @@ func historyToolDefs[Resp any](cb callbacks.HistoryCallbacks) map[string]Tool[Re
 
 				result, err := cb.ListCommits(ctx, offset, limit)
 				if err != nil {
-					log.With("error", err).Error("Failed to list commits")
+					clog.FromContext(ctx).With("error", err).Error("Failed to list commits")
 					resp := params.ErrorWithContext(err, map[string]any{"offset": offset, "limit": limit})
 					tc.Complete(resp, err)
 					return resp
@@ -115,8 +113,6 @@ func historyToolDefs[Resp any](cb callbacks.HistoryCallbacks) map[string]Tool[Re
 				}},
 			},
 			Handler: func(ctx context.Context, call ToolCall, trace *agenttrace.Trace[Resp], _ *Resp) map[string]any {
-				log := clog.FromContext(ctx)
-
 				path, errResp := Param[string](call, trace, "path")
 				if errResp != nil {
 					return errResp
@@ -146,7 +142,7 @@ func historyToolDefs[Resp any](cb callbacks.HistoryCallbacks) map[string]Tool[Re
 
 				result, err := cb.GetFileDiff(ctx, path, start, end, offset, limit)
 				if err != nil {
-					log.With("path", path).With("error", err).Error("Failed to get file diff")
+					clog.FromContext(ctx).With("path", path).With("error", err).Error("Failed to get file diff")
 					resp := params.ErrorWithContext(err, map[string]any{"path": path})
 					tc.Complete(resp, err)
 					return resp
