@@ -7,9 +7,9 @@ package googletool
 
 import (
 	"errors"
-	"reflect"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"google.golang.org/genai"
 )
 
@@ -478,8 +478,8 @@ func TestErrorWithContext(t *testing.T) {
 			if got.ID != call.ID || got.Name != call.Name {
 				t.Errorf("ErrorWithContext() wrong ID/Name")
 			}
-			if !reflect.DeepEqual(got.Response, tt.expected) {
-				t.Errorf("ErrorWithContext() Response = %v, want %v", got.Response, tt.expected)
+			if diff := cmp.Diff(tt.expected, got.Response); diff != "" {
+				t.Errorf("ErrorWithContext() Response mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}
