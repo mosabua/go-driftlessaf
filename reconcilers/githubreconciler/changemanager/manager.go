@@ -271,14 +271,12 @@ func (cm *CM[T]) NewSession(
 		} `graphql:"repository(owner: $owner, name: $repo)"`
 	}
 
-	variables := map[string]any{
+	if err := gqlClient.Query(ctx, "GetPRInfo", &query, map[string]any{
 		"owner":   githubv4.String(owner),
 		"repo":    githubv4.String(repo),
 		"headRef": githubv4.String(branchName),
 		"baseRef": githubv4.String(ref),
-	}
-
-	if err := gqlClient.Query(ctx, "GetPRInfo", &query, variables); err != nil {
+	}); err != nil {
 		return nil, fmt.Errorf("querying pull request: %w", err)
 	}
 
@@ -480,12 +478,10 @@ func (cm *CM[T]) paginateFailedRuns(
 			} `graphql:"node(id: $suiteId)"`
 		}
 
-		variables := map[string]any{
+		if err := gqlClient.Query(ctx, "PaginateFailedRuns", &query, map[string]any{
 			"suiteId": githubv4.ID(suiteID),
 			"cursor":  githubv4.String(cursor),
-		}
-
-		if err := gqlClient.Query(ctx, "PaginateFailedRuns", &query, variables); err != nil {
+		}); err != nil {
 			clog.WarnContextf(ctx, "failed to paginate failed check runs: %v", err)
 			return // Skip on error
 		}
@@ -521,12 +517,10 @@ func (cm *CM[T]) paginatePendingRuns(
 			} `graphql:"node(id: $suiteId)"`
 		}
 
-		variables := map[string]any{
+		if err := gqlClient.Query(ctx, "PaginatePendingRuns", &query, map[string]any{
 			"suiteId": githubv4.ID(suiteID),
 			"cursor":  githubv4.String(cursor),
-		}
-
-		if err := gqlClient.Query(ctx, "PaginatePendingRuns", &query, variables); err != nil {
+		}); err != nil {
 			clog.WarnContextf(ctx, "failed to paginate pending check runs: %v", err)
 			return // Skip on error
 		}
@@ -580,14 +574,12 @@ func (cm *CM[T]) paginateCheckSuites(
 			} `graphql:"repository(owner: $owner, name: $repo)"`
 		}
 
-		variables := map[string]any{
+		if err := gqlClient.Query(ctx, "PaginateCheckSuites", &query, map[string]any{
 			"owner":  githubv4.String(owner),
 			"repo":   githubv4.String(repo),
 			"sha":    githubv4.GitObjectID(sha),
 			"cursor": githubv4.String(cursor),
-		}
-
-		if err := gqlClient.Query(ctx, "PaginateCheckSuites", &query, variables); err != nil {
+		}); err != nil {
 			return // Skip on error
 		}
 
