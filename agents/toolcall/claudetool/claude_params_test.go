@@ -7,10 +7,10 @@ package claudetool
 
 import (
 	"encoding/json"
-	"reflect"
 	"testing"
 
 	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/google/go-cmp/cmp"
 )
 
 // TestNewParams tests the NewParams function
@@ -149,9 +149,8 @@ func TestParams_Get(t *testing.T) {
 			if gotOk != tt.wantOk {
 				t.Errorf("Get() ok = %v, want %v", gotOk, tt.wantOk)
 			}
-			if !reflect.DeepEqual(gotValue, tt.wantValue) {
-				t.Errorf("Get() value = %v (type %T), want %v (type %T)",
-					gotValue, gotValue, tt.wantValue, tt.wantValue)
+			if diff := cmp.Diff(tt.wantValue, gotValue); diff != "" {
+				t.Errorf("Get() value mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}

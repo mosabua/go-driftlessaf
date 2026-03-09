@@ -95,11 +95,10 @@ func handler[Resp any](t toolcall.Tool[Resp]) func(context.Context, anthropic.To
 			trace.BadToolCall(toolUse.ID, toolUse.Name, map[string]any{"input": toolUse.Input}, errors.New("failed to parse params"))
 			return params.Error("Failed to parse tool input: %v", err)
 		}
-		call := toolcall.ToolCall{
+		return t.Handler(ctx, toolcall.ToolCall{
 			ID:   toolUse.ID,
 			Name: toolUse.Name,
 			Args: args,
-		}
-		return t.Handler(ctx, call, trace, result)
+		}, trace, result)
 	}
 }

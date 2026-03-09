@@ -8,8 +8,9 @@ package claudetool
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 // TestError tests the Error function with various input scenarios
@@ -59,8 +60,8 @@ func TestError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := Error(tt.format, tt.args...)
-			if !reflect.DeepEqual(got, tt.expected) {
-				t.Errorf("Error() = %v, want %v", got, tt.expected)
+			if diff := cmp.Diff(tt.expected, got); diff != "" {
+				t.Errorf("Error() mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}
@@ -149,8 +150,8 @@ func TestErrorWithContext(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ErrorWithContext(tt.err, tt.context)
-			if !reflect.DeepEqual(got, tt.expected) {
-				t.Errorf("ErrorWithContext() = %v, want %v", got, tt.expected)
+			if diff := cmp.Diff(tt.expected, got); diff != "" {
+				t.Errorf("ErrorWithContext() mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}
