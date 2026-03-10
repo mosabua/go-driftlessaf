@@ -6,9 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 package googletool_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
+	"chainguard.dev/driftlessaf/agents/agenttrace"
+	"chainguard.dev/driftlessaf/agents/toolcall"
 	"chainguard.dev/driftlessaf/agents/toolcall/googletool"
 	"google.golang.org/genai"
 )
@@ -258,6 +261,90 @@ func Example_completeFunctionImplementation() {
 	// Response ID: call_db_query
 	// Row count: 2
 	// Database: production
+}
+
+// ExampleFromTool demonstrates converting a unified tool to Google-specific metadata.
+func ExampleFromTool() {
+	// Define a unified tool that works with any provider.
+	type Result struct{ Summary string }
+
+	t := toolcall.Tool[Result]{
+		Def: toolcall.Definition{
+			Name:        "summarize",
+			Description: "Summarize the provided text.",
+			Parameters: []toolcall.Parameter{{
+				Name:        "text",
+				Type:        "string",
+				Description: "The text to summarize.",
+				Required:    true,
+			}},
+		},
+		Handler: func(_ context.Context, call toolcall.ToolCall, _ *agenttrace.Trace[Result], _ *Result) map[string]any {
+			text, errResp := toolcall.OptionalParam(call, "text", "")
+			if errResp != nil {
+				return errResp
+			}
+			return map[string]any{"summary": "Summary of: " + text}
+		},
+	}
+
+	// Convert the unified tool to Google-specific metadata.
+	meta := googletool.FromTool(t)
+
+	fmt.Printf("Name: %s\n", meta.Definition.Name)
+	fmt.Printf("Description: %s\n", meta.Definition.Description)
+	fmt.Printf("Handler set: %v\n", meta.Handler != nil)
+
+	// Output:
+	// Name: summarize
+	// Description: Summarize the provided text.
+	// Handler set: true
+}
+
+// ExampleMap demonstrates converting a map of unified tools to Google-specific metadata.
+func ExampleMap() {
+	// Define a set of unified tools.
+	type Result struct{ Answer string }
+
+	tools := map[string]toolcall.Tool[Result]{
+		"greet": {
+			Def: toolcall.Definition{
+				Name:        "greet",
+				Description: "Greet a user by name.",
+				Parameters: []toolcall.Parameter{{
+					Name:        "name",
+					Type:        "string",
+					Description: "The name of the user.",
+					Required:    true,
+				}},
+			},
+			Handler: func(_ context.Context, call toolcall.ToolCall, _ *agenttrace.Trace[Result], _ *Result) map[string]any {
+				return map[string]any{"greeting": "Hello!"}
+			},
+		},
+		"farewell": {
+			Def: toolcall.Definition{
+				Name:        "farewell",
+				Description: "Say farewell to a user.",
+				Parameters:  []toolcall.Parameter{},
+			},
+			Handler: func(_ context.Context, _ toolcall.ToolCall, _ *agenttrace.Trace[Result], _ *Result) map[string]any {
+				return map[string]any{"message": "Goodbye!"}
+			},
+		},
+	}
+
+	// Convert the entire map to Google-specific metadata.
+	meta := googletool.Map(tools)
+
+	fmt.Printf("Tool count: %d\n", len(meta))
+	fmt.Printf("greet handler set: %v\n", meta["greet"].Handler != nil)
+	fmt.Printf("farewell handler set: %v\n", meta["farewell"].Handler != nil)
+
+	// Output:
+	// Tool count: 2
+	// greet handler set: true
+	// farewell handler set: true
 }
 
 // ExampleParam_typeConversions demonstrates automatic type conversions for numeric types.
