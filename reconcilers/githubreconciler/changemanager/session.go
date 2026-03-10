@@ -151,9 +151,7 @@ func (s *Session[T]) ApplyTurnLimit(ctx context.Context) (string, error) {
 	if s.prNumber == 0 {
 		return "", nil
 	}
-	log := clog.FromContext(ctx)
-	log.With("pr", s.prNumber, "commits", s.commitCount, "max", s.manager.maxCommits).
-		Info("PR hit turn limit, adding skip and turn-limit labels")
+	clog.InfoContext(ctx, "PR hit turn limit, adding skip and turn-limit labels", "pr", s.prNumber, "commits", s.commitCount, "max", s.manager.maxCommits)
 
 	labels := []string{s.skipLabel(), s.manager.identity + "/turn-limit"}
 	if _, _, err := s.client.Issues.AddLabelsToIssue(ctx, s.owner, s.repo, s.prNumber, labels); err != nil {
