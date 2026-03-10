@@ -6,10 +6,13 @@ SPDX-License-Identifier: Apache-2.0
 package claudetool_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 
+	"chainguard.dev/driftlessaf/agents/agenttrace"
+	"chainguard.dev/driftlessaf/agents/toolcall"
 	"chainguard.dev/driftlessaf/agents/toolcall/claudetool"
 	"github.com/anthropics/anthropic-sdk-go"
 )
@@ -165,6 +168,87 @@ func ExampleErrorWithContext() {
 	// Filename: data.txt
 	// Path: /var/data
 	// Attempts: 3
+}
+
+// ExampleFromTool demonstrates converting a unified tool to Claude-specific metadata.
+func ExampleFromTool() {
+	// Define a unified tool that works with any provider.
+	tool := toolcall.Tool[string]{
+		Def: toolcall.Definition{
+			Name:        "greet",
+			Description: "Greet a person by name.",
+			Parameters: []toolcall.Parameter{{
+				Name:        "name",
+				Type:        "string",
+				Description: "The name of the person to greet.",
+				Required:    true,
+			}},
+		},
+		Handler: func(_ context.Context, call toolcall.ToolCall, _ *agenttrace.Trace[string], _ *string) map[string]any {
+			name, _ := call.Args["name"].(string)
+			return map[string]any{"greeting": "Hello, " + name + "!"}
+		},
+	}
+
+	// Convert the unified tool to Claude-specific metadata.
+	meta := claudetool.FromTool(tool)
+	fmt.Println(meta.Definition.Name)
+
+	// Output:
+	// greet
+}
+
+// ExampleMap demonstrates converting a map of unified tools to Claude-specific metadata.
+func ExampleMap() {
+	// Define a map of unified tools.
+	tools := map[string]toolcall.Tool[string]{
+		"greet": {
+			Def: toolcall.Definition{
+				Name:        "greet",
+				Description: "Greet a person by name.",
+			},
+			Handler: func(_ context.Context, _ toolcall.ToolCall, _ *agenttrace.Trace[string], _ *string) map[string]any {
+				return map[string]any{"greeting": "Hello!"}
+			},
+		},
+		"farewell": {
+			Def: toolcall.Definition{
+				Name:        "farewell",
+				Description: "Say farewell to a person.",
+			},
+			Handler: func(_ context.Context, _ toolcall.ToolCall, _ *agenttrace.Trace[string], _ *string) map[string]any {
+				return map[string]any{"farewell": "Goodbye!"}
+			},
+		},
+	}
+
+	// Convert all tools to Claude-specific metadata.
+	meta := claudetool.Map(tools)
+	fmt.Println(len(meta))
+
+	// Output:
+	// 2
+}
+
+// ExampleParams_RawInputs demonstrates retrieving a copy of all raw input parameters.
+func ExampleParams_RawInputs() {
+	toolUse := anthropic.ToolUseBlock{
+		Input: json.RawMessage(`{
+			"filename": "report.txt",
+			"max_lines": 50
+		}`),
+	}
+
+	params, _ := claudetool.NewParams(toolUse)
+
+	// RawInputs returns a shallow copy of all parameters.
+	raw := params.RawInputs()
+	fmt.Println(raw["filename"])
+	fmt.Println(raw["max_lines"])
+
+	// Output:
+	// report.txt
+	// 50
 }
 
 // ExampleParams_completeToolImplementation demonstrates a complete tool implementation.
