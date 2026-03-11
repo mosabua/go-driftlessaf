@@ -154,14 +154,14 @@ func TestNeedsRefresh(t *testing.T) {
 
 			if tt.wantRequeue {
 				if _, ok := workqueue.GetRequeueDelay(err); !ok {
-					t.Errorf("requeue: got = %v, wanted RequeueAfter error", err)
+					t.Errorf("requeue: got = %v, want RequeueAfter error", err)
 				}
 			} else if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
 			if got != tt.wantRefresh {
-				t.Errorf("needsRefresh: got = %v, wanted = %v", got, tt.wantRefresh)
+				t.Errorf("needsRefresh: got = %v, want = %v", got, tt.wantRefresh)
 			}
 		})
 	}

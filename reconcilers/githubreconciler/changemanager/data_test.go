@@ -69,7 +69,7 @@ func TestNew(t *testing.T) {
 				if err == nil {
 					t.Error("New() error: got = nil, want = non-nil error")
 				} else if !strings.Contains(err.Error(), tt.errContains) {
-					t.Errorf("New() error message: got = %q, wanted to contain %q", err.Error(), tt.errContains)
+					t.Errorf("New() error message: got = %q, want to contain %q", err.Error(), tt.errContains)
 				}
 			} else {
 				if cm == nil {
@@ -77,7 +77,7 @@ func TestNew(t *testing.T) {
 					return
 				}
 				if cm.identity != tt.identity {
-					t.Errorf("New() identity: got = %q, wanted = %q", cm.identity, tt.identity)
+					t.Errorf("New() identity: got = %q, want = %q", cm.identity, tt.identity)
 				}
 			}
 		})
