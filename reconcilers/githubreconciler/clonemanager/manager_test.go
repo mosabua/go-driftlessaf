@@ -295,6 +295,56 @@ func TestFIFOPoolBehavior(t *testing.T) {
 	_ = reacquired3.Return(ctx)
 }
 
+// BenchmarkLease measures the cost of a Lease/Return cycle against a real
+// remote repository. It uses golang/go at master as a representative large
+// repository (~15k files, ~400MB). Set GITHUB_TOKEN to run.
+//
+// Example:
+//
+//	GITHUB_TOKEN=$(gh auth token) \
+//	  go test -bench BenchmarkLease -benchtime 10x -timeout 30m
+func BenchmarkLease(b *testing.B) {
+	token := os.Getenv("GITHUB_TOKEN")
+	if token == "" {
+		b.Skip("GITHUB_TOKEN not set")
+	}
+
+	ctx := context.Background()
+
+	mgr, err := New(ctx, staticTokenSource(token), "bench", nil)
+	if err != nil {
+		b.Fatalf("New: %v", err)
+	}
+
+	res := &githubreconciler.Resource{
+		Owner: "golang",
+		Repo:  "go",
+		Ref:   "master",
+		Path:  "README.md",
+		Type:  githubreconciler.ResourceTypePath,
+	}
+
+	// Warm up: pay the initial clone cost outside the timer.
+	lease, err := mgr.Lease(ctx, res)
+	if err != nil {
+		b.Fatalf("warmup Lease: %v", err)
+	}
+	if err := lease.Return(ctx); err != nil {
+		b.Fatalf("warmup Return: %v", err)
+	}
+
+	b.ResetTimer()
+	for b.Loop() {
+		lease, err := mgr.Lease(ctx, res)
+		if err != nil {
+			b.Fatalf("Lease: %v", err)
+		}
+		if err := lease.Return(ctx); err != nil {
+			b.Fatalf("Return: %v", err)
+		}
+	}
+}
+
 type staticTokenSource string
 
 func (s staticTokenSource) Token() (*oauth2.Token, error) {
