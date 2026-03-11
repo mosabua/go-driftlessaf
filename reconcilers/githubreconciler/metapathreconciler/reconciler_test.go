@@ -15,6 +15,7 @@ import (
 	"chainguard.dev/driftlessaf/agents/promptbuilder"
 	"chainguard.dev/driftlessaf/agents/toolcall"
 	"chainguard.dev/driftlessaf/agents/toolcall/callbacks"
+	"chainguard.dev/driftlessaf/reconcilers/githubreconciler"
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/changemanager"
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/clonemanager"
 	gogit "github.com/go-git/go-git/v5"
@@ -58,6 +59,52 @@ type fakeAnalyzer struct {
 
 func (a *fakeAnalyzer) Analyze(_ context.Context, _ *gogit.Worktree, _ ...string) ([]Diagnostic, error) {
 	return a.diagnostics, a.err
+}
+
+func TestWithMode(t *testing.T) {
+	tests := []struct {
+		name string
+		mode Mode
+		want Mode
+	}{{
+		name: "fix only",
+		mode: ModeFix,
+		want: ModeFix,
+	}, {
+		name: "review only",
+		mode: ModeReview,
+		want: ModeReview,
+	}, {
+		name: "all",
+		mode: ModeAll,
+		want: ModeAll,
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var o option
+			WithMode(tt.mode)(&o)
+			if o.mode != tt.want {
+				t.Errorf("mode: got = %d, wanted = %d", o.mode, tt.want)
+			}
+		})
+	}
+}
+
+func TestReconcileReviewOnlySkipsPath(t *testing.T) {
+	rec := &Reconciler[*testRequest, *testResult, testCallbacks]{
+		identity: "test-identity",
+		mode:     ModeReview,
+	}
+
+	err := rec.Reconcile(context.Background(), &githubreconciler.Resource{
+		Type:  githubreconciler.ResourceTypePath,
+		Owner: "owner",
+		Repo:  "repo",
+	}, nil)
+	if err != nil {
+		t.Fatalf("Reconcile: got = %v, wanted = nil", err)
+	}
 }
 
 func TestReconcilerFields(t *testing.T) {
