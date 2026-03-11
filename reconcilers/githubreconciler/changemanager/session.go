@@ -143,6 +143,21 @@ func (s *Session[T]) PendingChecks() []string {
 	return s.pendingChecks
 }
 
+// PRNumber returns the number of the existing PR, or 0 if none exists.
+func (s *Session[T]) PRNumber() int {
+	return s.prNumber
+}
+
+// Assignees returns the login names of users assigned to the existing PR.
+func (s *Session[T]) Assignees() []string {
+	return s.prAssignees
+}
+
+// Labels returns the label names on the existing PR.
+func (s *Session[T]) Labels() []string {
+	return s.prLabels
+}
+
 // ApplyTurnLimit adds the skip label and a turn-limit label to the PR,
 // preventing further automated iterations. Returns the PR URL.
 // This is a no-op if no PR exists.

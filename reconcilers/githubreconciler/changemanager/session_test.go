@@ -33,6 +33,70 @@ func mustEmbedBody(t *testing.T, te *internaltemplate.Template[testData], data *
 	return body
 }
 
+func TestSessionGetters(t *testing.T) {
+	tests := []struct {
+		name          string
+		session       Session[testData]
+		wantPRNumber  int
+		wantAssignees []string
+		wantLabels    []string
+	}{{
+		name:          "no PR",
+		session:       Session[testData]{},
+		wantPRNumber:  0,
+		wantAssignees: nil,
+		wantLabels:    nil,
+	}, {
+		name: "PR with assignees and labels",
+		session: Session[testData]{
+			prNumber:    42,
+			prAssignees: []string{"alice", "bob"},
+			prLabels:    []string{"skip:cve-remediation", "automated pr"},
+		},
+		wantPRNumber:  42,
+		wantAssignees: []string{"alice", "bob"},
+		wantLabels:    []string{"skip:cve-remediation", "automated pr"},
+	}, {
+		name: "PR with no assignees and no labels",
+		session: Session[testData]{
+			prNumber:    7,
+			prAssignees: []string{},
+			prLabels:    []string{},
+		},
+		wantPRNumber:  7,
+		wantAssignees: []string{},
+		wantLabels:    []string{},
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.session.PRNumber(); got != tt.wantPRNumber {
+				t.Errorf("PRNumber(): got = %d, want = %d", got, tt.wantPRNumber)
+			}
+			if got := tt.session.Assignees(); !slicesEqual(got, tt.wantAssignees) {
+				t.Errorf("Assignees(): got = %v, want = %v", got, tt.wantAssignees)
+			}
+			if got := tt.session.Labels(); !slicesEqual(got, tt.wantLabels) {
+				t.Errorf("Labels(): got = %v, want = %v", got, tt.wantLabels)
+			}
+		})
+	}
+}
+
+// slicesEqual returns true if two string slices have the same elements in the same order,
+// treating nil and empty slices as unequal.
+func slicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func TestNeedsRefresh(t *testing.T) {
 	te := mustTemplateExecutor(t)
 
