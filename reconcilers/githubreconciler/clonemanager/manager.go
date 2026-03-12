@@ -252,19 +252,6 @@ func (m *Manager) prepareClone(ctx context.Context, cl *clone, ref string, res *
 		cl.repo = repo
 	}
 
-	worktree, err := repo.Worktree()
-	if err != nil {
-		return "", false, fmt.Errorf("getting worktree: %w", err)
-	}
-
-	if err := worktree.Reset(&git.ResetOptions{Mode: git.HardReset}); err != nil {
-		return "", false, fmt.Errorf("resetting worktree: %w", err)
-	}
-
-	if err := worktree.Clean(&git.CleanOptions{Dir: true}); err != nil {
-		return "", false, fmt.Errorf("cleaning worktree: %w", err)
-	}
-
 	auth, err := m.authForRemote()
 	if err != nil {
 		return "", false, fmt.Errorf("getting token: %w", err)
@@ -285,6 +272,11 @@ func (m *Manager) prepareClone(ctx context.Context, cl *clone, ref string, res *
 	remoteRef, err := repo.Reference(dst, true)
 	if err != nil {
 		return "", false, fmt.Errorf("getting remote ref %s: %w", ref, err)
+	}
+
+	worktree, err := repo.Worktree()
+	if err != nil {
+		return "", false, fmt.Errorf("getting worktree: %w", err)
 	}
 
 	worktreeCheckout := &git.CheckoutOptions{Hash: remoteRef.Hash(), Force: true}
