@@ -63,21 +63,47 @@ func detectProjectID(ctx context.Context, t *testing.T) string {
 func TestExecutorWithThinking(t *testing.T) {
 	ctx := context.Background()
 
-	if testing.Short() {
-		// https://github.com/anthropics/anthropic-sdk-go/issues/222
-		t.Skip("Skipping anthropic test in short mode.")
-	}
-
 	// Detect project ID
 	projectID := detectProjectID(ctx, t)
 
-	// Create client with Vertex AI authentication
-	client := anthropic.NewClient(
-		vertex.WithGoogleAuth(ctx, "us-east5", projectID),
-	)
+	// Define base model test configurations (Claude Haiku for fast testing)
+	tests := []struct {
+		name     string
+		region   string
+		model    string
+		thinking int64 // 0 means no thinking
+	}{{
+		name:   "claude-haiku-4-5",
+		region: "us-east5",
+		model:  "claude-haiku-4-5@20251001",
+	}}
 
-	// Create prompt template
-	prompt, err := promptbuilder.NewPrompt(`You are a helpful math assistant.
+	// Add Claude Sonnet with extended thinking when not in short mode
+	if !testing.Short() {
+		tests = append(tests, struct {
+			name     string
+			region   string
+			model    string
+			thinking int64
+		}{
+			name:     "claude-sonnet-4-thinking",
+			region:   "us-east5",
+			model:    "claude-sonnet-4-5@20250929",
+			thinking: 2048,
+		})
+	}
+
+	t.Logf("Running %d test configurations (testing.Short=%v)", len(tests), testing.Short())
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create client with Vertex AI authentication
+			client := anthropic.NewClient(
+				vertex.WithGoogleAuth(ctx, tt.region, projectID, "https://www.googleapis.com/auth/cloud-platform"),
+			)
+
+			// Create prompt template
+			prompt, err := promptbuilder.NewPrompt(`You are a helpful math assistant.
 
 Question: {{question}}
 
@@ -86,87 +112,92 @@ Please solve this problem and provide your answer in JSON format:
   "answer": "the numerical answer",
   "reasoning": "brief explanation of how you solved it"
 }`)
-	if err != nil {
-		t.Fatalf("Failed to create prompt: %v", err)
-	}
+			if err != nil {
+				t.Fatalf("Failed to create prompt: %v", err)
+			}
 
-	// Create executor with thinking enabled
-	exec, err := claudeexecutor.New[*simpleRequest, *simpleResponse](
-		client,
-		prompt,
-		claudeexecutor.WithModel[*simpleRequest, *simpleResponse]("claude-sonnet-4@20250514"),
-		claudeexecutor.WithMaxTokens[*simpleRequest, *simpleResponse](8192),
-		claudeexecutor.WithThinking[*simpleRequest, *simpleResponse](2048), // Enable thinking with modest budget
-	)
-	if err != nil {
-		t.Fatalf("Failed to create executor: %v", err)
-	}
+			execOpts := []claudeexecutor.Option[*simpleRequest, *simpleResponse]{
+				claudeexecutor.WithModel[*simpleRequest, *simpleResponse](tt.model),
+				claudeexecutor.WithMaxTokens[*simpleRequest, *simpleResponse](8192),
+			}
+			if tt.thinking > 0 {
+				execOpts = append(execOpts, claudeexecutor.WithThinking[*simpleRequest, *simpleResponse](tt.thinking))
+			}
 
-	// Create namespaced observer
-	obs := evals.NewNamespacedObserver(func(name string) *mockObserver {
-		return &mockObserver{}
-	})
+			exec, err := claudeexecutor.New[*simpleRequest, *simpleResponse](
+				client,
+				prompt,
+				execOpts...,
+			)
+			if err != nil {
+				t.Fatalf("Failed to create executor: %v", err)
+			}
 
-	// Create eval callback that validates reasoning blocks
-	reasoningValidator := func(o evals.Observer, trace *agenttrace.Trace[*simpleResponse]) {
-		if len(trace.Reasoning) == 0 {
-			o.Fail("no reasoning blocks captured in trace")
-			return
-		}
+			testCtx := ctx
+			// Set up thinking validation when thinking is enabled
+			if tt.thinking > 0 {
+				obs := evals.NewNamespacedObserver(func(name string) *mockObserver {
+					return &mockObserver{}
+				})
 
-		// Verify first block has expected content
-		first := trace.Reasoning[0]
-		if first.Thinking == "" {
-			o.Fail("reasoning block missing thinking")
-			return
-		}
+				reasoningValidator := func(o evals.Observer, trace *agenttrace.Trace[*simpleResponse]) {
+					if len(trace.Reasoning) == 0 {
+						o.Fail("no reasoning blocks captured in trace")
+						return
+					}
 
-		o.Log(fmt.Sprintf("Captured %d reasoning block(s), first has %d chars",
-			len(trace.Reasoning), len(first.Thinking)))
-	}
+					first := trace.Reasoning[0]
+					if first.Thinking == "" {
+						o.Fail("reasoning block missing thinking")
+						return
+					}
 
-	// Build tracer with eval callback
-	tracer := evals.BuildTracer(obs, map[string]evals.ObservableTraceCallback[*simpleResponse]{
-		"reasoning_validator": reasoningValidator,
-	})
-	ctx = agenttrace.WithTracer(ctx, tracer)
+					o.Log(fmt.Sprintf("Captured %d reasoning block(s), first has %d chars",
+						len(trace.Reasoning), len(first.Thinking)))
+				}
 
-	// Execute with a simple math problem that should trigger thinking
-	request := &simpleRequest{
-		Question: "What is 17 * 23?",
-	}
+				tracer := evals.BuildTracer(obs, map[string]evals.ObservableTraceCallback[*simpleResponse]{
+					"reasoning_validator": reasoningValidator,
+				})
+				testCtx = agenttrace.WithTracer(testCtx, tracer)
 
-	response, err := exec.Execute(ctx, request, nil)
-	if err != nil {
-		t.Fatalf("Execute failed: %v", err)
-	}
+				t.Cleanup(func() {
+					var failures []string
+					var logs []string
+					obs.Walk(func(name string, o *mockObserver) {
+						failures = append(failures, o.failures...)
+						logs = append(logs, o.logs...)
+					})
 
-	// Verify we got a valid response
-	if response == nil {
-		t.Fatal("Expected non-nil response")
-	}
+					if len(failures) > 0 {
+						t.Errorf("Thinking validation failed:\n%s", strings.Join(failures, "\n"))
+					}
 
-	if response.Answer == "" {
-		t.Error("Expected non-empty answer")
-	}
+					for _, log := range logs {
+						t.Log(log)
+					}
+				})
+			}
 
-	t.Logf("Response: answer=%q, reasoning=%q", response.Answer, response.Reasoning)
+			request := &simpleRequest{
+				Question: "What is 17 * 23?",
+			}
 
-	// Check if any eval failures occurred by inspecting the observer
-	var failures []string
-	var logs []string
-	obs.Walk(func(name string, o *mockObserver) {
-		failures = append(failures, o.failures...)
-		logs = append(logs, o.logs...)
-	})
+			response, err := exec.Execute(testCtx, request, nil)
+			if err != nil {
+				t.Fatalf("Execute failed: %v", err)
+			}
 
-	if len(failures) > 0 {
-		t.Errorf("Thinking validation failed:\n%s", strings.Join(failures, "\n"))
-	}
+			if response == nil {
+				t.Fatal("Expected non-nil response")
+			}
 
-	// Log all eval logs
-	for _, log := range logs {
-		t.Log(log)
+			if response.Answer == "" {
+				t.Error("Expected non-empty answer")
+			}
+
+			t.Logf("Response: answer=%q, reasoning=%q", response.Answer, response.Reasoning)
+		})
 	}
 }
 

@@ -18,7 +18,7 @@ SPDX-License-Identifier: Apache-2.0
 // Create an executor with a client and prompt template:
 //
 //	client := anthropic.NewClient(
-//	    vertex.WithGoogleAuth(ctx, region, projectID),
+//	    vertex.WithGoogleAuth(ctx, region, projectID, "https://www.googleapis.com/auth/cloud-platform"),
 //	)
 //
 //	tmpl, _ := template.New("prompt").Parse("Analyze: {{.Input}}")

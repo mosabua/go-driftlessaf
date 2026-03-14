@@ -29,7 +29,7 @@ func newClaudeAgent[Req promptbuilder.Bindable, Resp, CB any](
 	config Config[Resp, CB],
 ) (Agent[Req, Resp, CB], error) {
 	client := anthropic.NewClient(
-		vertex.WithGoogleAuth(ctx, region, projectID),
+		vertex.WithGoogleAuth(ctx, region, projectID, "https://www.googleapis.com/auth/cloud-platform"),
 	)
 
 	executorOpts := []claudeexecutor.Option[Req, Resp]{

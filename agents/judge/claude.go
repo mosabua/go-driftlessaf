@@ -26,7 +26,7 @@ type claude struct {
 func newClaude(ctx context.Context, projectID, region, model string, opts ...claudeexecutor.Option[*Request, *Judgement]) (Interface, error) {
 	// Create client with Vertex AI authentication
 	client := anthropic.NewClient(
-		vertex.WithGoogleAuth(ctx, region, projectID),
+		vertex.WithGoogleAuth(ctx, region, projectID, "https://www.googleapis.com/auth/cloud-platform"),
 	)
 
 	// Use pre-parsed templates from prompts.go
