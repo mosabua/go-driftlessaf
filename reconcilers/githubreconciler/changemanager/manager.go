@@ -111,18 +111,37 @@ type gqlCheckSuitesConnection struct {
 	Nodes []gqlCheckSuiteNode
 }
 
-// GraphQL types for querying reviews
-type gqlReviewComment struct {
-	DatabaseId int64
-	Author     struct{ Login string }
-	Body       string
-	Path       string
-	Line       int
-	Outdated   bool
-	Url        string
+// GraphQL types for querying review threads
+type gqlThreadComment struct {
+	Author            struct{ Login string }
+	AuthorAssociation string
+	Body              string
+	Url               string
+	Commit            struct{ Oid string }
+	CreatedAt         string
 }
 
-type gqlReviewNode struct {
+type gqlReviewThread struct {
+	Id         string
+	IsResolved bool
+	IsOutdated bool
+	Path       string
+	Line       int
+	Comments   struct {
+		Nodes []gqlThreadComment
+	} `graphql:"comments(first: 100)"`
+}
+
+type gqlReviewThreadsConnection struct {
+	PageInfo struct {
+		HasNextPage bool
+		EndCursor   string
+	}
+	Nodes []gqlReviewThread
+}
+
+// GraphQL types for querying review bodies (top-level review text only)
+type gqlReviewBodyNode struct {
 	DatabaseId        int64
 	Author            struct{ Login string }
 	AuthorAssociation string
@@ -131,21 +150,14 @@ type gqlReviewNode struct {
 	Url               string
 	SubmittedAt       string
 	Commit            struct{ Oid string }
-	Comments          struct {
-		PageInfo struct {
-			HasNextPage bool
-			EndCursor   string
-		}
-		Nodes []gqlReviewComment
-	} `graphql:"comments(first: 100)"`
 }
 
-type gqlReviewsConnection struct {
+type gqlReviewBodiesConnection struct {
 	PageInfo struct {
 		HasNextPage bool
 		EndCursor   string
 	}
-	Nodes []gqlReviewNode
+	Nodes []gqlReviewBodyNode
 }
 
 // trustedAuthorAssociations defines which author associations we trust for reviews.
@@ -263,7 +275,8 @@ func (cm *CM[T]) NewSession(
 							Login string
 						}
 					} `graphql:"assignees(first: 100)"`
-					Reviews gqlReviewsConnection `graphql:"reviews(first: 100)"`
+					ReviewThreads gqlReviewThreadsConnection `graphql:"reviewThreads(first: 100)"`
+					Reviews       gqlReviewBodiesConnection  `graphql:"reviews(first: 100)"`
 				}
 			} `graphql:"pullRequests(headRefName: $headRef, baseRefName: $baseRef, states: [OPEN], first: 1)"`
 		} `graphql:"repository(owner: $owner, name: $repo)"`
@@ -313,13 +326,17 @@ func (cm *CM[T]) NewSession(
 			findings, pendingChecks = collectFindings(ctx, gqlClient, owner, repo, pr.HeadRefOid, commit.CheckSuites)
 		}
 
-		// Collect review findings from trusted authors on the current commit
-		findings = append(findings, collectReviewFindings(pr.HeadRefOid, pr.Reviews)...)
+		// Collect unresolved review thread findings from trusted authors
+		findings = append(findings, collectThreadFindings(pr.ReviewThreads)...)
+
+		// Collect review body findings from trusted authors on the current commit
+		findings = append(findings, collectReviewBodyFindings(pr.HeadRefOid, pr.Reviews)...)
 	}
 
 	return &Session[T]{
 		manager:       cm,
 		client:        client,
+		gqlClient:     gqlClient,
 		resource:      res,
 		owner:         owner,
 		repo:          repo,
@@ -341,38 +358,63 @@ func ptrTo[T any](v T) *T {
 	return &v
 }
 
-// collectReviewFindings extracts findings from reviews by trusted authors on the current commit.
-func collectReviewFindings(headRefOid string, reviews gqlReviewsConnection) []callbacks.Finding {
-	findings := make([]callbacks.Finding, 0, len(reviews.Nodes))
+// collectThreadFindings extracts findings from unresolved review threads.
+// All unresolved threads are included regardless of which commit they were left on.
+// Only comments from trusted authors are included; threads with no trusted comments are skipped.
+func collectThreadFindings(threads gqlReviewThreadsConnection) []callbacks.Finding {
+	findings := make([]callbacks.Finding, 0, len(threads.Nodes))
 
-	for _, review := range reviews.Nodes {
-		// Skip untrusted authors
-		if _, trusted := trustedAuthorAssociations[review.AuthorAssociation]; !trusted {
+	for _, thread := range threads.Nodes {
+		if thread.IsResolved {
 			continue
 		}
 
-		// Skip reviews not on current commit
-		if review.Commit.Oid != headRefOid {
-			continue
-		}
-
-		// Filter out outdated comments
-		var activeComments []gqlReviewComment
-		for _, c := range review.Comments.Nodes {
-			if !c.Outdated {
-				activeComments = append(activeComments, c)
+		// Filter to comments from trusted authors only
+		var trustedComments []gqlThreadComment
+		for _, c := range thread.Comments.Nodes {
+			if _, trusted := trustedAuthorAssociations[c.AuthorAssociation]; trusted {
+				trustedComments = append(trustedComments, c)
 			}
 		}
-
-		// Skip reviews with no content (no body AND no active comments)
-		if review.Body == "" && len(activeComments) == 0 {
+		if len(trustedComments) == 0 {
 			continue
 		}
 
 		findings = append(findings, callbacks.Finding{
 			Kind:       callbacks.FindingKindReview,
-			Identifier: fmt.Sprintf("%d", review.DatabaseId),
-			Details:    formatReviewDetails(review, activeComments),
+			Identifier: thread.Id,
+			Details:    formatThreadDetails(thread.Path, thread.Line, thread.IsOutdated, trustedComments),
+			DetailsURL: trustedComments[0].Url,
+		})
+	}
+
+	return findings
+}
+
+// reviewBodyIdentifierPrefix distinguishes review body findings from thread findings.
+const reviewBodyIdentifierPrefix = "review-body:"
+
+// collectReviewBodyFindings extracts findings from non-empty review bodies by trusted
+// authors on the current commit. Review bodies lack a resolution concept, so they are
+// filtered by commit association: once the bot pushes a new commit, old bodies drop out.
+func collectReviewBodyFindings(headRefOid string, reviews gqlReviewBodiesConnection) []callbacks.Finding {
+	var findings []callbacks.Finding
+
+	for _, review := range reviews.Nodes {
+		if _, trusted := trustedAuthorAssociations[review.AuthorAssociation]; !trusted {
+			continue
+		}
+		if review.Commit.Oid != headRefOid {
+			continue
+		}
+		if review.Body == "" {
+			continue
+		}
+
+		findings = append(findings, callbacks.Finding{
+			Kind:       callbacks.FindingKindReview,
+			Identifier: reviewBodyIdentifierPrefix + fmt.Sprintf("%d", review.DatabaseId),
+			Details:    formatReviewBodyDetails(review),
 			DetailsURL: review.Url,
 		})
 	}

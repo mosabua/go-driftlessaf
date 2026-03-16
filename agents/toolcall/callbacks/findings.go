@@ -51,6 +51,10 @@ type FindingCallbacks struct {
 	// GetLogs fetches logs for a finding (e.g., GitHub Actions job logs).
 	// Returns the cleaned log content as a string.
 	GetLogs func(ctx context.Context, kind FindingKind, identifier string) (string, error)
+
+	// Resolve marks a review thread finding as resolved by calling the
+	// GitHub resolveReviewThread mutation.
+	Resolve func(ctx context.Context, identifier string) error
 }
 
 // HasGetDetails returns true if the GetDetails callback is available.
@@ -61,6 +65,11 @@ func (f FindingCallbacks) HasGetDetails() bool {
 // HasGetLogs returns true if the GetLogs callback is available.
 func (f FindingCallbacks) HasGetLogs() bool {
 	return f.GetLogs != nil
+}
+
+// HasResolve returns true if the Resolve callback is available.
+func (f FindingCallbacks) HasResolve() bool {
+	return f.Resolve != nil
 }
 
 // GetFinding looks up a finding by kind and identifier.

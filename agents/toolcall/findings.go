@@ -64,6 +64,9 @@ func findingToolDefs[Resp any](cb callbacks.FindingCallbacks) map[string]Tool[Re
 	if cb.HasGetLogs() {
 		maps.Copy(defs, findingLogTools[Resp](cb.GetLogs))
 	}
+	if cb.HasResolve() {
+		defs["resolve_finding"] = resolveFindingTool[Resp](cb.Resolve)
+	}
 
 	return defs
 }
@@ -103,6 +106,43 @@ func getFindingDetailsTool[Resp any](getDetails func(context.Context, callbacks.
 				"kind":       kind,
 				"identifier": identifier,
 				"details":    details,
+			}
+			tc.Complete(result, nil)
+			return result
+		},
+	}
+}
+
+func resolveFindingTool[Resp any](resolve func(context.Context, string) error) Tool[Resp] {
+	return Tool[Resp]{
+		Def: Definition{
+			Name:        "resolve_finding",
+			Description: "Resolve a finding after addressing the feedback. Only works for review thread findings, not CI checks or review bodies.",
+			Parameters: []Parameter{{
+				Name:        "identifier",
+				Type:        "string",
+				Description: "The identifier of the finding to resolve (from the request's findings list)",
+				Required:    true,
+			}},
+		},
+		Handler: func(ctx context.Context, call ToolCall, trace *agenttrace.Trace[Resp], _ *Resp) map[string]any {
+			identifier, errResp := Param[string](call, trace, "identifier")
+			if errResp != nil {
+				return errResp
+			}
+
+			tc := trace.StartToolCall(call.ID, call.Name, map[string]any{"identifier": identifier})
+
+			if err := resolve(ctx, identifier); err != nil {
+				clog.ErrorContext(ctx, "Failed to resolve finding", "identifier", identifier, "error", err)
+				result := params.ErrorWithContext(err, map[string]any{"identifier": identifier})
+				tc.Complete(result, err)
+				return result
+			}
+
+			result := map[string]any{
+				"identifier": identifier,
+				"resolved":   true,
 			}
 			tc.Complete(result, nil)
 			return result

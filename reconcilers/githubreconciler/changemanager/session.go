@@ -12,13 +12,16 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"chainguard.dev/driftlessaf/agents/toolcall/callbacks"
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler"
+	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/graphqlclient"
 	"chainguard.dev/driftlessaf/workqueue"
 	"github.com/chainguard-dev/clog"
 	"github.com/google/go-github/v75/github"
+	"github.com/shurcooL/githubv4"
 )
 
 // State is a bit-field representing the composite state of a PR.
@@ -70,6 +73,7 @@ func (s State) HasNoConflicts() bool {
 type Session[T any] struct {
 	manager    *CM[T]
 	client     *github.Client
+	gqlClient  *graphqlclient.GraphQLClient
 	resource   *githubreconciler.Resource
 	owner      string
 	repo       string
@@ -231,7 +235,29 @@ func (s *Session[T]) FindingCallbacks() callbacks.FindingCallbacks {
 			}
 			return "", fmt.Errorf("finding not found: %s/%s", kind, identifier)
 		},
+		Resolve: func(ctx context.Context, identifier string) error {
+			if strings.HasPrefix(identifier, reviewBodyIdentifierPrefix) {
+				return errors.New("cannot resolve review body findings, only review thread findings can be resolved")
+			}
+			return resolveReviewThread(ctx, s.gqlClient, identifier)
+		},
 	}
+}
+
+// resolveReviewThread calls the GitHub resolveReviewThread GraphQL mutation.
+func resolveReviewThread(ctx context.Context, gqlClient *graphqlclient.GraphQLClient, threadID string) error {
+	var mutation struct {
+		ResolveReviewThread struct {
+			Thread struct {
+				Id         string
+				IsResolved bool
+			}
+		} `graphql:"resolveReviewThread(input: $input)"`
+	}
+
+	return gqlClient.Mutate(ctx, "ResolveReviewThread", &mutation, githubv4.ResolveReviewThreadInput{
+		ThreadID: githubv4.ID(threadID),
+	}, nil)
 }
 
 // ErrNoChanges can be returned by the makeChanges callback to signal that no

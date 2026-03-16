@@ -31,23 +31,37 @@ func formatCheckRunDetails(name, status, conclusion, title, summary, text, detai
 	return sb.String()
 }
 
-// formatReviewDetails builds a human-readable details string for a code review.
-func formatReviewDetails(review gqlReviewNode, activeComments []gqlReviewComment) string {
+// formatThreadDetails builds a human-readable details string for a review thread.
+// Includes commit SHA and outdated status so the agent can contextualize via history tools.
+func formatThreadDetails(path string, line int, isOutdated bool, comments []gqlThreadComment) string {
+	var sb strings.Builder
+
+	first := comments[0]
+
+	sb.WriteString(fmt.Sprintf("Review thread by @%s (%s)\n", first.Author.Login, first.AuthorAssociation))
+	sb.WriteString(fmt.Sprintf("Path: %s:%d\n", path, line))
+
+	commitAnnotation := first.Commit.Oid
+	if isOutdated {
+		commitAnnotation += " (outdated)"
+	}
+	sb.WriteString(fmt.Sprintf("Commit: %s\n", commitAnnotation))
+
+	for _, c := range comments {
+		sb.WriteString(fmt.Sprintf("\n[Comment by @%s]\n%s\n", c.Author.Login, c.Body))
+	}
+
+	return sb.String()
+}
+
+// formatReviewBodyDetails builds a human-readable details string for a review body.
+func formatReviewBodyDetails(review gqlReviewBodyNode) string {
 	var sb strings.Builder
 
 	sb.WriteString(fmt.Sprintf("Review by @%s (%s) - %s\n", review.Author.Login, review.AuthorAssociation, review.State))
 	sb.WriteString(fmt.Sprintf("Submitted: %s\n", review.SubmittedAt))
-
-	if review.Body != "" {
-		sb.WriteString(fmt.Sprintf("\nSummary:\n%s\n", review.Body))
-	}
-
-	if len(activeComments) > 0 {
-		sb.WriteString("\nInline Comments:\n")
-		for _, c := range activeComments {
-			sb.WriteString(fmt.Sprintf("\n[%s:%d]\n%s\n", c.Path, c.Line, c.Body))
-		}
-	}
+	sb.WriteString(fmt.Sprintf("Commit: %s\n", review.Commit.Oid))
+	sb.WriteString(fmt.Sprintf("\n%s\n", review.Body))
 
 	return sb.String()
 }
