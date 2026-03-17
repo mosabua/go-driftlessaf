@@ -74,7 +74,7 @@ func main() {
 	if err != nil {
 		clog.FatalContextf(ctx, "failed to detect project ID: %v", err)
 	}
-	clog.FromContext(ctx).With("project_id", projectID).Info("Detected Google Cloud project")
+	clog.InfoContext(ctx, "Detected Google Cloud project", "project_id", projectID)
 
 	// Get zone from metadata and extract region for default model region
 	zone, err := metadata.ZoneWithContext(ctx)
@@ -82,7 +82,7 @@ func main() {
 		clog.FatalContextf(ctx, "failed to get zone from metadata: %v", err)
 	}
 	defaultRegion := zone[:strings.LastIndex(zone, "-")]
-	clog.FromContext(ctx).With("region", defaultRegion).Info("Detected Google Cloud region")
+	clog.InfoContext(ctx, "Detected Google Cloud region", "region", defaultRegion)
 
 	// Use configured region or fall back to detected region
 	materializerRegion := cfg.MaterializerRegion
@@ -125,8 +125,7 @@ func main() {
 	}
 
 	// Create the materializer agent
-	clog.FromContext(ctx).With("model", cfg.MaterializerModel, "region", materializerRegion).
-		Info("Initializing materializer agent")
+	clog.InfoContext(ctx, "Initializing materializer agent", "model", cfg.MaterializerModel, "region", materializerRegion)
 	mat, err := newAgent(ctx, projectID, materializerRegion, cfg.MaterializerModel, tools)
 	if err != nil {
 		clog.FatalContextf(ctx, "failed to create materializer: %v", err)
@@ -172,7 +171,7 @@ func main() {
 	healthgrpc.RegisterHealthServer(d.Server, health.NewServer())
 
 	// Start the server
-	clog.FromContext(ctx).With("port", cfg.Port).Info("Starting materializer reconciler")
+	clog.InfoContext(ctx, "Starting materializer reconciler", "port", cfg.Port)
 	if err := d.ListenAndServe(ctx); err != nil {
 		clog.FatalContextf(ctx, "server failed: %v", err)
 	}

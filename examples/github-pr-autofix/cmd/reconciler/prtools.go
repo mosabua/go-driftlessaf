@@ -94,8 +94,6 @@ func updatePRTitleTool(updateFn func(context.Context, string) error) toolcall.To
 			},
 		},
 		Handler: func(ctx context.Context, call toolcall.ToolCall, trace *agenttrace.Trace[*PRFixResult], _ **PRFixResult) map[string]any {
-			log := clog.FromContext(ctx)
-
 			newTitle, errResp := toolcall.Param[string](call, trace, "new_title")
 			if errResp != nil {
 				return errResp
@@ -110,7 +108,7 @@ func updatePRTitleTool(updateFn func(context.Context, string) error) toolcall.To
 			}
 
 			if err := updateFn(ctx, newTitle); err != nil {
-				log.With("error", err).Error("Failed to update PR title")
+				clog.ErrorContext(ctx, "Failed to update PR title", "error", err)
 				result := params.ErrorWithContext(err, map[string]any{"new_title": newTitle})
 				tc.Complete(result, err)
 				return result
@@ -137,8 +135,6 @@ func updatePRDescriptionTool(updateFn func(context.Context, string) error) toolc
 			},
 		},
 		Handler: func(ctx context.Context, call toolcall.ToolCall, trace *agenttrace.Trace[*PRFixResult], _ **PRFixResult) map[string]any {
-			log := clog.FromContext(ctx)
-
 			newDescription, errResp := toolcall.Param[string](call, trace, "new_description")
 			if errResp != nil {
 				return errResp
@@ -153,7 +149,7 @@ func updatePRDescriptionTool(updateFn func(context.Context, string) error) toolc
 			}
 
 			if err := updateFn(ctx, newDescription); err != nil {
-				log.With("error", err).Error("Failed to update PR description")
+				clog.ErrorContext(ctx, "Failed to update PR description", "error", err)
 				result := params.ErrorWithContext(err, map[string]any{"new_description_length": len(newDescription)})
 				tc.Complete(result, err)
 				return result

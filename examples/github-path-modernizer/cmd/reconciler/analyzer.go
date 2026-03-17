@@ -26,13 +26,12 @@ type goModernize struct{}
 // Analyze runs the modernize analysis suite on the packages at the given
 // directory paths and returns structured diagnostics.
 func (a *goModernize) Analyze(ctx context.Context, wt *gogit.Worktree, paths ...string) ([]metapathreconciler.Diagnostic, error) {
-	log := clog.FromContext(ctx)
 	root := wt.Filesystem.Root()
 
 	var diagnostics []metapathreconciler.Diagnostic
 	for _, path := range paths {
 		pkgDir := filepath.Join(root, path)
-		log.With("pkg_dir", pkgDir).Info("Running Go modernize analyzer")
+		clog.InfoContext(ctx, "Running Go modernize analyzer", "pkg_dir", pkgDir)
 
 		// Load the package with full type information.
 		pkgs, err := packages.Load(&packages.Config{
@@ -48,7 +47,7 @@ func (a *goModernize) Analyze(ctx context.Context, wt *gogit.Worktree, paths ...
 		// reported as per-package errors rather than top-level errors.
 		pkgs = filterLoadable(pkgs)
 		if len(pkgs) == 0 {
-			log.With("pkg_dir", pkgDir).Info("Skipping path: no loadable Go packages")
+			clog.InfoContext(ctx, "Skipping path: no loadable Go packages", "pkg_dir", pkgDir)
 			continue
 		}
 
@@ -70,7 +69,7 @@ func (a *goModernize) Analyze(ctx context.Context, wt *gogit.Worktree, paths ...
 		}
 	}
 
-	log.With("diagnostics", len(diagnostics)).Info("Modernize analysis complete")
+	clog.InfoContext(ctx, "Modernize analysis complete", "diagnostics", len(diagnostics))
 	return diagnostics, nil
 }
 

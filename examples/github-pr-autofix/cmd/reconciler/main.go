@@ -237,7 +237,7 @@ func reconcilePR(ctx context.Context, res *githubreconciler.Resource, gh *github
 	// Fetch changed files to give agent more context
 	changedFiles, err := getChangedFiles(ctx, gh, res.Owner, res.Repo, res.Number)
 	if err != nil {
-		clog.FromContext(ctx).With("error", err).Warn("Failed to fetch changed files, continuing without them")
+		clog.WarnContext(ctx, "Failed to fetch changed files, continuing without them", "error", err)
 		changedFiles = nil
 	}
 
@@ -246,7 +246,7 @@ func reconcilePR(ctx context.Context, res *githubreconciler.Resource, gh *github
 	prTools := NewPRTools(gh, res.Owner, res.Repo, res.Number)
 	result, err := agent.Execute(ctx, prContext, prTools)
 	if err != nil {
-		clog.FromContext(ctx).With("error", err).Error("Agent execution failed")
+		clog.ErrorContext(ctx, "Agent execution failed", "error", err)
 		return session.SetActualState(ctx, "Agent failed", &statusmanager.Status[prvalidation.Details]{
 			Status:     "completed",
 			Conclusion: "failure",
