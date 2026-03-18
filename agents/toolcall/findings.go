@@ -99,7 +99,7 @@ func getFindingDetailsTool[Resp any](getDetails func(context.Context, callbacks.
 
 			details, err := getDetails(ctx, callbacks.FindingKind(kind), identifier)
 			if err != nil {
-				clog.FromContext(ctx).With("kind", kind).With("identifier", identifier).With("error", err).Error("Failed to get finding details")
+				clog.ErrorContext(ctx, "Failed to get finding details", "kind", kind, "identifier", identifier, "error", err)
 				result := params.ErrorWithContext(err, map[string]any{"kind": kind, "identifier": identifier})
 				tc.Complete(result, err)
 				return result
@@ -219,7 +219,7 @@ func readFindingLogsTool[Resp any](fetch func(context.Context, string, string) (
 			// Detect duplicate calls to prevent infinite loops.
 			key := readCall{kind: kind, identifier: identifier, offset: offset, limit: limit}
 			if _, dup := seen[key]; dup {
-				clog.FromContext(ctx).With("kind", kind).With("identifier", identifier).With("offset", offset).Warn("Duplicate read_finding_logs call detected")
+				clog.WarnContext(ctx, "Duplicate read_finding_logs call detected", "kind", kind, "identifier", identifier, "offset", offset)
 				tc := trace.StartToolCall(call.ID, call.Name, map[string]any{"kind": kind, "identifier": identifier, "offset": offset, "limit": limit})
 				resp := map[string]any{
 					"error":      "duplicate call — this exact offset and limit was already read. Use the content from the previous call, or try a different offset.",
@@ -237,7 +237,7 @@ func readFindingLogsTool[Resp any](fetch func(context.Context, string, string) (
 
 			logs, err := fetch(ctx, kind, identifier)
 			if err != nil {
-				clog.FromContext(ctx).With("kind", kind).With("identifier", identifier).With("error", err).Error("Failed to get finding logs")
+				clog.ErrorContext(ctx, "Failed to get finding logs", "kind", kind, "identifier", identifier, "error", err)
 				result := params.ErrorWithContext(err, map[string]any{"kind": kind, "identifier": identifier})
 				tc.Complete(result, err)
 				return result
@@ -305,7 +305,7 @@ func searchFindingLogsTool[Resp any](fetch func(context.Context, string, string)
 			// Detect duplicate calls to prevent infinite loops.
 			key := searchCall{kind: kind, identifier: identifier, pattern: pattern, skip: skip, limit: limit}
 			if _, dup := seen[key]; dup {
-				clog.FromContext(ctx).With("kind", kind).With("identifier", identifier).With("pattern", pattern).Warn("Duplicate search_finding_logs call detected")
+				clog.WarnContext(ctx, "Duplicate search_finding_logs call detected", "kind", kind, "identifier", identifier, "pattern", pattern)
 				tc := trace.StartToolCall(call.ID, call.Name, map[string]any{"kind": kind, "identifier": identifier, "pattern": pattern, "skip": skip, "limit": limit})
 				resp := map[string]any{
 					"error":      "duplicate call — this exact pattern, skip, and limit was already searched. Use the results from the previous call, or try a different pattern.",
@@ -322,7 +322,7 @@ func searchFindingLogsTool[Resp any](fetch func(context.Context, string, string)
 
 			logs, err := fetch(ctx, kind, identifier)
 			if err != nil {
-				clog.FromContext(ctx).With("kind", kind).With("identifier", identifier).With("error", err).Error("Failed to get finding logs")
+				clog.ErrorContext(ctx, "Failed to get finding logs", "kind", kind, "identifier", identifier, "error", err)
 				result := params.ErrorWithContext(err, map[string]any{"kind": kind, "identifier": identifier})
 				tc.Complete(result, err)
 				return result
@@ -330,7 +330,7 @@ func searchFindingLogsTool[Resp any](fetch func(context.Context, string, string)
 
 			matches, totalMatches, err := findingSearchContent(logs, pattern, skip, limit)
 			if err != nil {
-				clog.FromContext(ctx).With("kind", kind).With("identifier", identifier).With("pattern", pattern).With("error", err).Error("Failed to search finding logs")
+				clog.ErrorContext(ctx, "Failed to search finding logs", "kind", kind, "identifier", identifier, "pattern", pattern, "error", err)
 				result := params.ErrorWithContext(err, map[string]any{"kind": kind, "identifier": identifier, "pattern": pattern})
 				tc.Complete(result, err)
 				return result

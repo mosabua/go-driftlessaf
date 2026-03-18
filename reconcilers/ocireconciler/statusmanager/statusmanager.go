@@ -273,11 +273,11 @@ func (m *Manager[T]) fetchLatestStatus(ctx context.Context, subject name.Digest)
 	verifiedAtts, bundleVerified, err := cosign.VerifyImageAttestation(ctx, attestations, h, co)
 	if err != nil {
 		// If verification fails entirely, treat as no attestations.
-		clog.FromContext(ctx).Warnf("Attestation verification failed: %v", err)
+		clog.WarnContextf(ctx, "Attestation verification failed: %v", err)
 		return nil, nil
 	}
 	if !bundleVerified {
-		clog.FromContext(ctx).Warn("Attestation bundle not verified")
+		clog.WarnContext(ctx, "Attestation bundle not verified")
 		return nil, nil
 	}
 
@@ -285,12 +285,12 @@ func (m *Manager[T]) fetchLatestStatus(ctx context.Context, subject name.Digest)
 	for _, att := range verifiedAtts {
 		ann, err := att.Annotations()
 		if err != nil {
-			clog.FromContext(ctx).Warnf("Skipping attestation: %v", err)
+			clog.WarnContextf(ctx, "Skipping attestation: %v", err)
 			continue
 		}
 		pt, ok := ann["predicateType"]
 		if !ok {
-			clog.FromContext(ctx).Warn("Skipping attestation without predicateType annotation")
+			clog.WarnContext(ctx, "Skipping attestation without predicateType annotation")
 			continue
 		}
 		if pt != m.predicateType {
@@ -298,7 +298,7 @@ func (m *Manager[T]) fetchLatestStatus(ctx context.Context, subject name.Digest)
 		}
 		status, err := extractStatus[T](att)
 		if err != nil {
-			clog.FromContext(ctx).Warnf("Failed to parse status attestation: %v", err)
+			clog.WarnContextf(ctx, "Failed to parse status attestation: %v", err)
 			continue
 		}
 		candidate := &statusCandidate[T]{status: status, timestamp: integratedTime(att)}

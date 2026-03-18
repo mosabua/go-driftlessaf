@@ -179,7 +179,7 @@ func (m *Manager) leaseRef(ctx context.Context, res *githubreconciler.Resource, 
 
 	sha, exists, err := m.prepareClone(ctx, cl, ref, res, depth)
 	if err != nil {
-		clog.FromContext(ctx).Warnf("Discarding clone after prepare failure: %v", err)
+		clog.WarnContextf(ctx, "Discarding clone after prepare failure: %v", err)
 		m.discardClone(cl)
 		return nil, err
 	}
@@ -189,7 +189,7 @@ func (m *Manager) leaseRef(ctx context.Context, res *githubreconciler.Resource, 
 	// (depth = commitCount + 1), so subtract 1 to get the PR commit count.
 	baseCommit, err := resolveBaseCommit(cl.repo, max(depth-1, 0))
 	if err != nil {
-		clog.FromContext(ctx).Warnf("Discarding clone after base commit resolution failure: %v", err)
+		clog.WarnContextf(ctx, "Discarding clone after base commit resolution failure: %v", err)
 		m.discardClone(cl)
 		return nil, fmt.Errorf("resolve base commit: %w", err)
 	}
@@ -228,7 +228,7 @@ func (m *Manager) createClone(ctx context.Context, ref string, res *githubreconc
 	}
 
 	remote := repoURL(res)
-	clog.FromContext(ctx).Infof("Cloning repository %s into %s", remote, dir)
+	clog.InfoContextf(ctx, "Cloning repository %s into %s", remote, dir)
 
 	auth, err := m.authForRemote()
 	if err != nil {
@@ -280,7 +280,7 @@ func (m *Manager) prepareClone(ctx context.Context, cl *clone, ref string, res *
 		Depth:    depth,
 	}
 
-	clog.FromContext(ctx).Infof("Fetching ref %s", ref)
+	clog.InfoContextf(ctx, "Fetching ref %s", ref)
 	if err := repo.Fetch(fetchOpts); err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return "", false, fmt.Errorf("fetching ref %s: %w", ref, err)
 	}
@@ -316,7 +316,7 @@ func (m *Manager) prepareClone(ctx context.Context, cl *clone, ref string, res *
 		_, err = tree.FindEntry(res.Path)
 		if err != nil {
 			if errors.Is(err, object.ErrEntryNotFound) {
-				clog.FromContext(ctx).Debugf("Path %s not found at commit %s", res.Path, remoteRef.Hash().String())
+				clog.DebugContextf(ctx, "Path %s not found at commit %s", res.Path, remoteRef.Hash().String())
 				return remoteRef.Hash().String(), false, nil
 			}
 			return remoteRef.Hash().String(), false, fmt.Errorf("checking tree path %s: %w", res.Path, err)
@@ -327,13 +327,13 @@ func (m *Manager) prepareClone(ctx context.Context, cl *clone, ref string, res *
 		_, err = os.Stat(fsPath)
 		if err != nil {
 			if os.IsNotExist(err) {
-				clog.FromContext(ctx).Debugf("Path %s does not exist on filesystem at commit %s", res.Path, remoteRef.Hash().String())
+				clog.DebugContextf(ctx, "Path %s does not exist on filesystem at commit %s", res.Path, remoteRef.Hash().String())
 				return remoteRef.Hash().String(), false, nil
 			}
 			return remoteRef.Hash().String(), false, fmt.Errorf("checking fs path %s: %w", res.Path, err)
 		}
 
-		clog.FromContext(ctx).Debugf("Path %s exists at commit %s", res.Path, remoteRef.Hash().String())
+		clog.DebugContextf(ctx, "Path %s exists at commit %s", res.Path, remoteRef.Hash().String())
 	}
 
 	status, err := worktree.Status()
@@ -491,15 +491,13 @@ func (m *Manager) commitChanges(repo *git.Repository, commitMessage string) erro
 }
 
 func (m *Manager) forcePushBranch(ctx context.Context, repo *git.Repository, ref plumbing.ReferenceName) error {
-	log := clog.FromContext(ctx)
-
 	token, err := m.tokenSource.Token()
 	if err != nil {
 		return fmt.Errorf("getting token: %w", err)
 	}
 
 	refSpec := gitconfig.RefSpec(fmt.Sprintf("%s:%s", ref.String(), ref.String()))
-	log.Infof("Force pushing to %s", refSpec)
+	clog.InfoContextf(ctx, "Force pushing to %s", refSpec)
 
 	if err := repo.Push(&git.PushOptions{
 		RemoteName: "origin",
@@ -511,7 +509,7 @@ func (m *Manager) forcePushBranch(ctx context.Context, repo *git.Repository, ref
 		RefSpecs: []gitconfig.RefSpec{refSpec},
 	}); err != nil {
 		if errors.Is(err, git.NoErrAlreadyUpToDate) {
-			log.Infof("Branch already up to date")
+			clog.InfoContextf(ctx, "Branch already up to date")
 			return nil
 		}
 		return fmt.Errorf("force pushing: %w", err)
