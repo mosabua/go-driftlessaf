@@ -20,7 +20,7 @@ import (
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/graphqlclient"
 	"chainguard.dev/driftlessaf/workqueue"
 	"github.com/chainguard-dev/clog"
-	"github.com/google/go-github/v75/github"
+	"github.com/google/go-github/v84/github"
 	"github.com/shurcooL/githubv4"
 )
 

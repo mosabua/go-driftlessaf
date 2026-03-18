@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/graphqlclient"
-	"github.com/google/go-github/v75/github"
+	"github.com/google/go-github/v84/github"
 )
 
 // ExampleNewGraphQLClient demonstrates creating a GraphQL client from a

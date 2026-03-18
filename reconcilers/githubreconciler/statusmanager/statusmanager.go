@@ -14,7 +14,7 @@ import (
 	"sync"
 
 	"cloud.google.com/go/compute/metadata"
-	"github.com/google/go-github/v75/github"
+	"github.com/google/go-github/v84/github"
 
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler"
 	internaltemplate "chainguard.dev/driftlessaf/reconcilers/githubreconciler/internal/template"

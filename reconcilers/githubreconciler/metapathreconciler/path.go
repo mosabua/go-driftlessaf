@@ -16,7 +16,7 @@ import (
 	"chainguard.dev/driftlessaf/workqueue"
 	"github.com/chainguard-dev/clog"
 	gogit "github.com/go-git/go-git/v5"
-	"github.com/google/go-github/v75/github"
+	"github.com/google/go-github/v84/github"
 )
 
 // reconcilePath handles path resources by running the analyzer and agent.

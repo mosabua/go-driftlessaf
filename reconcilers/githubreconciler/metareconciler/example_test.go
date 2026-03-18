@@ -16,7 +16,7 @@ import (
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/changemanager"
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/clonemanager"
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/metareconciler"
-	"github.com/google/go-github/v75/github"
+	"github.com/google/go-github/v84/github"
 )
 
 // baseCallbacks is the standard tool composition: Empty -> Worktree -> Finding

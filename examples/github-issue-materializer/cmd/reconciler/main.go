@@ -34,7 +34,7 @@ import (
 	_ "github.com/chainguard-dev/clog/gcp/init"
 	"github.com/chainguard-dev/terraform-infra-common/pkg/httpmetrics"
 	"github.com/chainguard-dev/terraform-infra-common/pkg/profiler"
-	"github.com/google/go-github/v75/github"
+	"github.com/google/go-github/v84/github"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
 	"github.com/sethvargo/go-envconfig"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"

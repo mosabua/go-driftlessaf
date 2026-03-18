@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"chainguard.dev/driftlessaf/agents/toolcall/callbacks"
-	"github.com/google/go-github/v75/github"
+	"github.com/google/go-github/v84/github"
 )
 
 const (

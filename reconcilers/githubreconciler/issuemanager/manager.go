@@ -16,7 +16,7 @@ import (
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler"
 	internaltemplate "chainguard.dev/driftlessaf/reconcilers/githubreconciler/internal/template"
 	"github.com/chainguard-dev/clog"
-	"github.com/google/go-github/v75/github"
+	"github.com/google/go-github/v84/github"
 )
 
 const (

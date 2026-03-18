@@ -12,7 +12,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/google/go-github/v75/github"
+	"github.com/google/go-github/v84/github"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 

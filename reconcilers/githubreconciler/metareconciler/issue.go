@@ -16,7 +16,7 @@ import (
 	"chainguard.dev/driftlessaf/workqueue"
 	"github.com/chainguard-dev/clog"
 	gogit "github.com/go-git/go-git/v5"
-	"github.com/google/go-github/v75/github"
+	"github.com/google/go-github/v84/github"
 )
 
 // reconcileIssue processes an issue URL and runs the agent to create/update a PR.

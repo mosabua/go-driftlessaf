@@ -14,7 +14,7 @@ import (
 
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler"
 	"github.com/chainguard-dev/clog"
-	"github.com/google/go-github/v75/github"
+	"github.com/google/go-github/v84/github"
 )
 
 // existingIssue represents an existing GitHub issue along with its extracted data.

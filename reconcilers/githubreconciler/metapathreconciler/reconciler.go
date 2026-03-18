@@ -17,7 +17,7 @@ import (
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/clonemanager"
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/statusmanager"
 	"github.com/chainguard-dev/clog"
-	"github.com/google/go-github/v75/github"
+	"github.com/google/go-github/v84/github"
 )
 
 // Mode controls which behaviors the reconciler performs.

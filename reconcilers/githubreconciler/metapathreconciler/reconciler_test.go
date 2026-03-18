@@ -19,7 +19,7 @@ import (
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/changemanager"
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/clonemanager"
 	gogit "github.com/go-git/go-git/v5"
-	"github.com/google/go-github/v75/github"
+	"github.com/google/go-github/v84/github"
 )
 
 // testCallbacks is the standard tool composition: Empty -> Worktree -> Finding
