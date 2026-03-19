@@ -35,7 +35,7 @@ func (c *Client) LoadState(ctx context.Context, issue *Issue, v any) (bool, erro
 		return false, fmt.Errorf("unmarshaling state: %w", err)
 	}
 
-	clog.FromContext(ctx).Infof("Loaded state from attachment %q", c.stateAttachmentTitle())
+	clog.InfoContextf(ctx, "Loaded state from attachment %q", c.stateAttachmentTitle())
 	return true, nil
 }
 
@@ -56,6 +56,6 @@ func (c *Client) SaveState(ctx context.Context, issue *Issue, v any) error {
 		return fmt.Errorf("uploading state attachment: %w", err)
 	}
 
-	clog.FromContext(ctx).Infof("Saved state to attachment %q", c.stateAttachmentTitle())
+	clog.InfoContextf(ctx, "Saved state to attachment %q", c.stateAttachmentTitle())
 	return nil
 }

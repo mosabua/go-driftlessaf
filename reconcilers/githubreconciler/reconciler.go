@@ -171,8 +171,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, url string) error {
 			// Calculate duration until rate limit resets
 			resetTime := rateLimitErr.Rate.Reset.Time
 			delay := addJitter(time.Until(resetTime))
-			clog.FromContext(ctx).With("reset_at", resetTime).
-				Warn("Rate limited, requeueing after rate limit reset")
+			clog.WarnContext(ctx, "Rate limited, requeueing after rate limit reset", "reset_at", resetTime)
 			return workqueue.RequeueAfter(delay)
 		}
 
@@ -185,8 +184,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, url string) error {
 				retryAfter = *abuseRateLimitErr.RetryAfter
 			}
 			delay := addJitter(retryAfter)
-			clog.FromContext(ctx).With("retry_after", delay).
-				Warn("Abuse rate limit detected, requeueing after retry period")
+			clog.WarnContext(ctx, "Abuse rate limit detected, requeueing after retry period", "retry_after", delay)
 			return workqueue.RequeueAfter(delay)
 		}
 
@@ -194,8 +192,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, url string) error {
 		if status.Code(err) == codes.ResourceExhausted {
 			// Resource exhausted - use a conservative retry delay
 			delay := addJitter(grpcRateLimitRetryDuration)
-			clog.FromContext(ctx).With("retry_after", delay).
-				Warn("gRPC ResourceExhausted detected, requeueing after retry period")
+			clog.WarnContext(ctx, "gRPC ResourceExhausted detected, requeueing after retry period", "retry_after", delay)
 			return workqueue.RequeueAfter(delay)
 		}
 	}

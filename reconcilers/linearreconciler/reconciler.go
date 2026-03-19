@@ -87,7 +87,7 @@ func New(ctx context.Context, token string, opts ...Option) (*Reconciler, error)
 	}
 	client.BotUserID = viewer.ID
 
-	clog.FromContext(ctx).Infof("Linear reconciler bot user: %s (%s)", viewer.Name, viewer.ID)
+	clog.InfoContextf(ctx, "Linear reconciler bot user: %s (%s)", viewer.Name, viewer.ID)
 
 	return r, nil
 }

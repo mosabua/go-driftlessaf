@@ -50,10 +50,7 @@ func (cc *ClientCache) Get(ctx context.Context, org, repo string) (*github.Clien
 	cc.mu.RUnlock()
 
 	if exists {
-		clog.FromContext(ctx).With(
-			"org", org,
-			"repo", repo,
-		).Debug("Using cached GitHub client")
+		clog.DebugContext(ctx, "Using cached GitHub client", "org", org, "repo", repo)
 		return client, nil
 	}
 
@@ -91,10 +88,7 @@ func (cc *ClientCache) Get(ctx context.Context, org, repo string) (*github.Clien
 	// Cache the client
 	cc.clients[key] = client
 
-	clog.FromContext(ctx).With(
-		"org", org,
-		"repo", repo,
-	).Info("Created new GitHub client for repository")
+	clog.InfoContext(ctx, "Created new GitHub client for repository", "org", org, "repo", repo)
 
 	return client, nil
 }
