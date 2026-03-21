@@ -8,6 +8,7 @@ package metapathreconciler
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"chainguard.dev/driftlessaf/agents/metaagent"
 	"chainguard.dev/driftlessaf/agents/promptbuilder"
@@ -34,6 +35,24 @@ const (
 	// ModeAll handles paths, own PRs, and reviews other PRs.
 	ModeAll = ModeFix | ModeReview
 )
+
+// EnvDecode implements github.com/sethvargo/go-envconfig.Decoder so Mode
+// can be used directly in envconfig structs. Valid values: fix, review, all, none.
+func (m *Mode) EnvDecode(val string) error {
+	switch strings.TrimSpace(strings.ToLower(val)) {
+	case "fix":
+		*m = ModeFix
+	case "review":
+		*m = ModeReview
+	case "all":
+		*m = ModeAll
+	case "none":
+		*m = ModeNone
+	default:
+		return fmt.Errorf("unknown mode %q", val)
+	}
+	return nil
+}
 
 // ShouldFix reports whether m includes fix behavior.
 func (m Mode) ShouldFix() bool { return m&ModeFix != 0 }

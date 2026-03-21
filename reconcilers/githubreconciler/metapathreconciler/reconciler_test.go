@@ -20,6 +20,7 @@ import (
 	"chainguard.dev/driftlessaf/reconcilers/githubreconciler/clonemanager"
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/google/go-github/v84/github"
+	"github.com/sethvargo/go-envconfig"
 )
 
 // testCallbacks is the standard tool composition: Empty -> Worktree -> Finding
@@ -59,6 +60,73 @@ type fakeAnalyzer struct {
 
 func (a *fakeAnalyzer) Analyze(_ context.Context, _ *gogit.Worktree, _ ...string) ([]Diagnostic, error) {
 	return a.diagnostics, a.err
+}
+
+func TestEnvDecode(t *testing.T) {
+	type config struct {
+		Mode Mode `env:"TEST_MODE,required"`
+	}
+
+	tests := []struct {
+		name    string
+		val     string
+		want    Mode
+		wantErr bool
+	}{{
+		name: "fix",
+		val:  "fix",
+		want: ModeFix,
+	}, {
+		name: "review",
+		val:  "review",
+		want: ModeReview,
+	}, {
+		name: "all",
+		val:  "all",
+		want: ModeAll,
+	}, {
+		name: "none",
+		val:  "none",
+		want: ModeNone,
+	}, {
+		name: "case insensitive",
+		val:  "FIX",
+		want: ModeFix,
+	}, {
+		name: "whitespace trimmed",
+		val:  "  review  ",
+		want: ModeReview,
+	}, {
+		name:    "unknown value",
+		val:     "bogus",
+		wantErr: true,
+	}, {
+		name:    "empty string",
+		val:     "",
+		wantErr: true,
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var cfg config
+			err := envconfig.ProcessWith(context.Background(), &envconfig.Config{
+				Target:   &cfg,
+				Lookuper: envconfig.MapLookuper(map[string]string{"TEST_MODE": tt.val}),
+			})
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if cfg.Mode != tt.want {
+				t.Errorf("mode: got = %d, wanted = %d", cfg.Mode, tt.want)
+			}
+		})
+	}
 }
 
 func TestWithMode(t *testing.T) {
