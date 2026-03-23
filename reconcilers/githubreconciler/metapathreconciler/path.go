@@ -101,17 +101,22 @@ func (r *Reconciler[Req, Resp, CB]) reconcilePath(ctx context.Context, res *gith
 	// only feed CI check findings. Mixing the two can cause conflicts (e.g.
 	// analyzer suggestions vs protoc codegen expectations).
 	var findings []callbacks.Finding
+	var diagnostics []Diagnostic
+	var allFixed bool
 	if usePRBranch {
 		// Subsequent pass: only feed CI check findings so the agent focuses
 		// on making CI pass without fighting analyzer suggestions.
 		findings = session.Findings()
 	} else {
-		// First pass: run the analyzer and feed diagnostics.
+		// First pass: run the analyzer. The analyzer may modify files in
+		// the worktree to fix some diagnostics, marking them as Fixed.
+		// Those modifications persist through createFreshBranch (same-SHA
+		// checkout) and are included in the eventual commit.
 		wt, err := lease.Repo().Worktree()
 		if err != nil {
 			return fmt.Errorf("get worktree: %w", err)
 		}
-		diagnostics, err := r.analyzer.Analyze(ctx, wt, res.Path)
+		diagnostics, err = r.analyzer.Analyze(ctx, wt, res.Path)
 		if err != nil {
 			return fmt.Errorf("run analyzer: %w", err)
 		}
@@ -119,27 +124,50 @@ func (r *Reconciler[Req, Resp, CB]) reconcilePath(ctx context.Context, res *gith
 			log.Info("No diagnostics, closing stale PR if any")
 			return session.CloseAnyOutstanding(ctx, "All diagnostics are resolved.")
 		}
-		findings = make([]callbacks.Finding, 0, len(diagnostics))
+
+		// Split diagnostics: only unfixed ones become agent findings.
+		var unfixed []Diagnostic
 		for _, d := range diagnostics {
-			findings = append(findings, d.AsFinding())
+			if !d.Fixed {
+				unfixed = append(unfixed, d)
+			}
+		}
+		allFixed = len(unfixed) == 0
+		if allFixed {
+			log.With("fixed", len(diagnostics)).Info("All diagnostics fixed by analyzer")
+		} else {
+			findings = make([]callbacks.Finding, 0, len(unfixed))
+			for _, d := range unfixed {
+				findings = append(findings, d.AsFinding())
+			}
 		}
 	}
 
-	log.With("findings", len(findings)).Info("Running agent")
-
-	// Build the request before Upsert so it can be stored in PRData.
-	request, err := r.buildRequest(ctx, findings)
-	if err != nil {
-		return fmt.Errorf("build request: %w", err)
+	// When the analyzer fixed everything, we still need a request for PRData
+	// but skip the agent entirely.
+	var request Req
+	if !allFixed {
+		log.With("findings", len(findings)).Info("Running agent")
+		var err error
+		request, err = r.buildRequest(ctx, findings)
+		if err != nil {
+			return fmt.Errorf("build request: %w", err)
+		}
 	}
 
-	// Upsert PR with agent changes
+	// Upsert PR with changes (analyzer fixes, agent fixes, or both).
 	prURL, err := session.Upsert(ctx, &PRData[Req]{
 		Identity: r.identity,
 		Path:     res.Path,
 		Request:  request,
 	}, false, r.prLabels, func(ctx context.Context, branchName string) error {
 		return lease.MakeAndPushChanges(ctx, branchName, func(ctx context.Context, _ *gogit.Worktree) (string, error) {
+			// If the analyzer already fixed everything, commit its
+			// changes directly without invoking the agent.
+			if allFixed {
+				return commitMessage(diagnostics), nil
+			}
+
 			cbs, err := r.buildCallbacks(ctx, session, lease)
 			if err != nil {
 				return "", fmt.Errorf("build callbacks: %w", err)
