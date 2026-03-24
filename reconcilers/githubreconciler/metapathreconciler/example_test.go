@@ -41,19 +41,3 @@ func Example_diagnostic() {
 	// Kind: ciCheck
 	// ID: modernize:pkg/handler.go:42
 }
-
-// Example_diagnosticFixed demonstrates a Diagnostic that was fixed by the Analyzer.
-func Example_diagnosticFixed() {
-	diag := metapathreconciler.Diagnostic{
-		Path:    "pkg/handler.go",
-		Line:    42,
-		Message: "use slices.Contains instead of manual loop",
-		Rule:    "modernize",
-		Fixed:   true,
-	}
-
-	fmt.Printf("Fixed: %v\n", diag.Fixed)
-
-	// Output:
-	// Fixed: true
-}

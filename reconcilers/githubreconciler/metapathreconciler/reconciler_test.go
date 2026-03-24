@@ -283,17 +283,6 @@ func TestDiagnosticAsFinding(t *testing.T) {
 		},
 		wantID:   "modernize:cmd/main.go",
 		wantKind: callbacks.FindingKindCICheck,
-	}, {
-		name: "fixed diagnostic",
-		diagnostic: Diagnostic{
-			Path:    "pkg/bar.go",
-			Line:    10,
-			Message: "use fmt.Appendf",
-			Rule:    "modernize",
-			Fixed:   true,
-		},
-		wantID:   "modernize:pkg/bar.go:10",
-		wantKind: callbacks.FindingKindCICheck,
 	}}
 
 	for _, tt := range tests {
@@ -310,55 +299,6 @@ func TestDiagnosticAsFinding(t *testing.T) {
 
 			if finding.Details == "" {
 				t.Error("finding.Details: got = empty, wanted non-empty")
-			}
-		})
-	}
-}
-
-func TestCommitMessage(t *testing.T) {
-	tests := []struct {
-		name        string
-		diagnostics []Diagnostic
-		contains    []string
-		notContains []string
-	}{{
-		name: "all fixed with line numbers",
-		diagnostics: []Diagnostic{{
-			Path: "pkg/foo.go", Line: 42, Message: "use slices.Contains", Rule: "modernize", Fixed: true,
-		}, {
-			Path: "cmd/main.go", Line: 10, Message: "use range over int", Rule: "modernize", Fixed: true,
-		}},
-		contains:    []string{"Automated fixes:", "modernize: pkg/foo.go:42 - use slices.Contains", "modernize: cmd/main.go:10 - use range over int"},
-		notContains: nil,
-	}, {
-		name: "mixed fixed and unfixed",
-		diagnostics: []Diagnostic{{
-			Path: "pkg/foo.go", Line: 42, Message: "use slices.Contains", Rule: "modernize", Fixed: true,
-		}, {
-			Path: "cmd/main.go", Line: 10, Message: "complex refactor", Rule: "modernize", Fixed: false,
-		}},
-		contains:    []string{"modernize: pkg/foo.go:42"},
-		notContains: []string{"complex refactor"},
-	}, {
-		name: "fixed without line number",
-		diagnostics: []Diagnostic{{
-			Path: "go.mod", Line: 0, Message: "outdated module", Rule: "deps", Fixed: true,
-		}},
-		contains: []string{"deps: go.mod - outdated module"},
-	}}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			msg := commitMessage(tt.diagnostics)
-			for _, want := range tt.contains {
-				if !strings.Contains(msg, want) {
-					t.Errorf("commit message missing %q in:\n%s", want, msg)
-				}
-			}
-			for _, notWant := range tt.notContains {
-				if strings.Contains(msg, notWant) {
-					t.Errorf("commit message should not contain %q in:\n%s", notWant, msg)
-				}
 			}
 		})
 	}

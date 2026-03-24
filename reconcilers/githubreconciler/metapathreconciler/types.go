@@ -8,7 +8,6 @@ package metapathreconciler
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"chainguard.dev/driftlessaf/agents/toolcall/callbacks"
 	gogit "github.com/go-git/go-git/v5"
@@ -41,11 +40,6 @@ type Diagnostic struct {
 
 	// Rule is the specific check/rule ID (e.g., "S1000", "modernize").
 	Rule string `json:"rule" jsonschema:"description=The rule that was violated"`
-
-	// Fixed indicates that the Analyzer already applied a fix for this
-	// diagnostic by modifying files in the worktree. Fixed diagnostics
-	// are not passed to the agent as findings.
-	Fixed bool `json:"fixed,omitempty" jsonschema:"description=Whether the analyzer already fixed this issue"`
 }
 
 // AsFinding converts a Diagnostic into a Finding so that diagnostics and
@@ -66,27 +60,6 @@ func (d Diagnostic) AsFinding() callbacks.Finding {
 		Identifier: id,
 		Details:    details,
 	}
-}
-
-// commitMessage builds a commit message enumerating the fixed diagnostics.
-func commitMessage(diagnostics []Diagnostic) string {
-	var sb strings.Builder
-	sb.WriteString("Automated fixes:\n")
-	for _, d := range diagnostics {
-		if !d.Fixed {
-			continue
-		}
-		sb.WriteString("\n- ")
-		sb.WriteString(d.Rule)
-		sb.WriteString(": ")
-		sb.WriteString(d.Path)
-		if d.Line > 0 {
-			fmt.Fprintf(&sb, ":%d", d.Line)
-		}
-		sb.WriteString(" - ")
-		sb.WriteString(d.Message)
-	}
-	return sb.String()
 }
 
 // PRData is the data embedded in PR bodies for change detection.
