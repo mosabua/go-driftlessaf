@@ -8,7 +8,6 @@ package clonemanager
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 
@@ -17,7 +16,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/format/diff"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/go-git/go-git/v5/plumbing/storer"
 )
 
 // HistoryCallbacks creates callbacks.HistoryCallbacks bound to a git repository,
@@ -89,9 +87,9 @@ func HistoryCallbacks(repo *gogit.Repository, baseCommit plumbing.Hash) callback
 // the PR branch's own ancestry, avoiding reliance on the base branch tip SHA
 // (which may not be present in a shallow clone).
 //
-// This assumes a linear commit history (no merge commits on the PR branch),
-// which is the case for bot-created PRs. For merge commits, ParentHashes[0]
-// is the first-parent which may not be the intended base.
+// The walk follows first-parent links so that merge commits are handled
+// correctly — the traversal stays on the mainline rather than descending
+// into side branches.
 //
 // The caller must ensure the clone has sufficient depth (commitCount+1) via
 // WithCommitDepth before calling this function. Lease.BaseCommit
@@ -112,60 +110,60 @@ func resolveBaseCommit(repo *gogit.Repository, commitCount int) (plumbing.Hash, 
 		return head.Hash(), nil
 	}
 
-	iter, err := repo.Log(&gogit.LogOptions{
-		From:  head.Hash(),
-		Order: gogit.LogOrderCommitterTime,
-	})
+	c, err := repo.CommitObject(head.Hash())
 	if err != nil {
-		return plumbing.ZeroHash, fmt.Errorf("log: %w", err)
+		return plumbing.ZeroHash, fmt.Errorf("get HEAD commit: %w", err)
 	}
-	defer iter.Close()
 
-	var last *object.Commit
-	for range commitCount {
-		c, err := iter.Next()
-		if errors.Is(err, io.EOF) {
-			break
+	// Walk commitCount-1 first-parent links to reach the oldest PR commit
+	// (HEAD is the first of the commitCount commits), then return its parent.
+	for range commitCount - 1 {
+		if c.NumParents() == 0 {
+			return plumbing.ZeroHash, nil
 		}
+		// Parent(0) follows the first-parent (mainline) link. For merge
+		// commits, Parent(0) is the branch tip before the merge and
+		// Parent(1+) are the merged-in side branches.
+		c, err = c.Parent(0)
 		if err != nil {
 			return plumbing.ZeroHash, fmt.Errorf("walk commit: %w", err)
 		}
-		last = c
 	}
 
-	if last == nil || last.NumParents() == 0 {
+	if c.NumParents() == 0 {
 		return plumbing.ZeroHash, nil
 	}
-	return last.ParentHashes[0], nil
+	return c.ParentHashes[0], nil
 }
 
 // collectCommits returns all commits from HEAD down to (but not including)
-// baseCommit in reverse chronological order.
+// baseCommit following first-parent links. This ensures merge commits are
+// handled correctly — the traversal stays on the mainline rather than
+// descending into side branches.
 func collectCommits(repo *gogit.Repository, baseCommit plumbing.Hash) ([]*object.Commit, error) {
 	head, err := repo.Head()
 	if err != nil {
 		return nil, fmt.Errorf("get HEAD: %w", err)
 	}
 
-	iter, err := repo.Log(&gogit.LogOptions{
-		From:  head.Hash(),
-		Order: gogit.LogOrderCommitterTime,
-	})
+	c, err := repo.CommitObject(head.Hash())
 	if err != nil {
-		return nil, fmt.Errorf("log: %w", err)
+		return nil, fmt.Errorf("get HEAD commit: %w", err)
 	}
-	defer iter.Close()
 
 	var commits []*object.Commit
-	err = iter.ForEach(func(c *object.Commit) error {
-		if c.Hash == baseCommit {
-			return storer.ErrStop
-		}
+	for c.Hash != baseCommit {
 		commits = append(commits, c)
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("walk commits: %w", err)
+		if c.NumParents() == 0 {
+			break
+		}
+		// Parent(0) follows the first-parent (mainline) link. For merge
+		// commits, Parent(0) is the branch tip before the merge and
+		// Parent(1+) are the merged-in side branches.
+		c, err = c.Parent(0)
+		if err != nil {
+			return nil, fmt.Errorf("walk commit: %w", err)
+		}
 	}
 	return commits, nil
 }

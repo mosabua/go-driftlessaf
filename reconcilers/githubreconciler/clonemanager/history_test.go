@@ -997,4 +997,133 @@ func TestPaginateDiff(t *testing.T) {
 	}
 }
 
+// initMergeRepo creates a repo with a base commit, then a side-branch commit
+// merged into mainline via a merge commit, followed by a regular commit on top.
+// The history looks like:
+//
+//	base ─── side ──┐
+//	  └── main1 ── merge ── main2 (HEAD)
+//
+// Returns the repo, base commit hash, and the hash of main2 (HEAD).
+// The PR commits on the mainline are: main1, merge, main2 (commitCount=3).
+func initMergeRepo(t *testing.T) (*gogit.Repository, plumbing.Hash) {
+	t.Helper()
+
+	dir := t.TempDir()
+	repo, err := gogit.PlainInit(dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wt, err := repo.Worktree()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Base commit.
+	writeTestFile(t, dir, "base.txt", "base\n", 0o644)
+	if _, err := wt.Add("base.txt"); err != nil {
+		t.Fatal(err)
+	}
+	baseHash, err := wt.Commit("base commit", &gogit.CommitOptions{Author: testSig()})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// First mainline commit after base.
+	writeTestFile(t, dir, "main1.txt", "main1\n", 0o644)
+	if _, err := wt.Add("main1.txt"); err != nil {
+		t.Fatal(err)
+	}
+	main1Hash, err := wt.Commit("main1", &gogit.CommitOptions{Author: testSig()})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a side-branch commit whose parent is base (not main1).
+	writeTestFile(t, dir, "side.txt", "side\n", 0o644)
+	if _, err := wt.Add("side.txt"); err != nil {
+		t.Fatal(err)
+	}
+	sideHash, err := wt.Commit("side branch", &gogit.CommitOptions{
+		Author:  testSig(),
+		Parents: []plumbing.Hash{baseHash},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Merge commit: first parent is main1, second parent is side.
+	writeTestFile(t, dir, "merge.txt", "merge\n", 0o644)
+	if _, err := wt.Add("merge.txt"); err != nil {
+		t.Fatal(err)
+	}
+	_, err = wt.Commit("merge side into main", &gogit.CommitOptions{
+		Author:  testSig(),
+		Parents: []plumbing.Hash{main1Hash, sideHash},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// One more regular commit on top.
+	writeTestFile(t, dir, "main2.txt", "main2\n", 0o644)
+	if _, err := wt.Add("main2.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := wt.Commit("main2", &gogit.CommitOptions{Author: testSig()}); err != nil {
+		t.Fatal(err)
+	}
+
+	return repo, baseHash
+}
+
+// TestResolveBaseCommitWithMerge verifies that resolveBaseCommit follows
+// first-parent links through merge commits and returns the correct base.
+func TestResolveBaseCommitWithMerge(t *testing.T) {
+	repo, baseHash := initMergeRepo(t)
+
+	// The mainline has 3 PR commits: main1, merge, main2.
+	got, err := resolveBaseCommit(repo, 3)
+	if err != nil {
+		t.Fatalf("resolveBaseCommit: %v", err)
+	}
+	if got != baseHash {
+		t.Errorf("base commit: got = %s, wanted = %s", got, baseHash)
+	}
+}
+
+// TestCollectCommitsWithMerge verifies that collectCommits follows
+// first-parent links and does not include side-branch commits.
+func TestCollectCommitsWithMerge(t *testing.T) {
+	repo, baseHash := initMergeRepo(t)
+
+	commits, err := collectCommits(repo, baseHash)
+	if err != nil {
+		t.Fatalf("collectCommits: %v", err)
+	}
+
+	// Should have exactly 3 mainline commits: main2, merge, main1.
+	if len(commits) != 3 {
+		t.Fatalf("len(commits): got = %d, wanted = 3", len(commits))
+	}
+
+	// Verify the side-branch commit is NOT in the list.
+	for _, c := range commits {
+		if strings.Contains(c.Message, "side branch") {
+			t.Errorf("collectCommits included side-branch commit: %s", c.Message)
+		}
+	}
+
+	// Verify order: newest first.
+	if !strings.Contains(commits[0].Message, "main2") {
+		t.Errorf("commits[0]: got = %q, wanted main2", commits[0].Message)
+	}
+	if !strings.Contains(commits[1].Message, "merge") {
+		t.Errorf("commits[1]: got = %q, wanted merge", commits[1].Message)
+	}
+	if !strings.Contains(commits[2].Message, "main1") {
+		t.Errorf("commits[2]: got = %q, wanted main1", commits[2].Message)
+	}
+}
+
 func int64Ptr(v int64) *int64 { return &v }
