@@ -172,10 +172,26 @@ func TestMakeAndPushChanges(t *testing.T) {
 		t.Fatalf("Lease: %v", err)
 	}
 
+	// Dirty the worktree before calling MakeAndPushChanges, simulating
+	// external commands that modify files in-place.
+	fooPath := filepath.Join(lease.WorkingTree(), "packages", "foo.yaml")
+	if err := os.WriteFile(fooPath, []byte("name: foo-updated"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
 	branchName := "clonemanager/test-branch"
 	barPath := filepath.ToSlash(filepath.Join("packages", "bar.yaml"))
 
 	if err := lease.MakeAndPushChanges(ctx, branchName, func(_ context.Context, wt *git.Worktree) (string, error) {
+		// Verify the worktree is clean when the updateFn is called.
+		status, err := wt.Status()
+		if err != nil {
+			return "", fmt.Errorf("Status: %w", err)
+		}
+		if !status.IsClean() {
+			return "", fmt.Errorf("expected clean worktree inside updateFn, got: %v", status)
+		}
+
 		absPath := filepath.Join(wt.Filesystem.Root(), barPath)
 		if err := os.WriteFile(absPath, []byte("name: bar"), 0o644); err != nil {
 			return "", fmt.Errorf("WriteFile: %w", err)
