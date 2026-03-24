@@ -12,7 +12,7 @@ import (
 	"github.com/chainguard-dev/terraform-provider-cosign/pkg/private/secant/types"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/sigstore/cosign/v2/pkg/cosign"
+	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/rekor/pkg/generated/client"
 )
 

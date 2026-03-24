@@ -14,7 +14,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	gogit "github.com/go-git/go-git/v5"
-	"github.com/sigstore/cosign/v2/pkg/providers"
+	"github.com/sigstore/cosign/v3/pkg/providers"
 	"github.com/sigstore/gitsign/pkg/fulcio"
 	"github.com/sigstore/gitsign/pkg/gitsign"
 	"github.com/sigstore/gitsign/pkg/rekor"
@@ -22,7 +22,7 @@ import (
 	"golang.org/x/oauth2"
 
 	// Sigstore auth providers - targeting Cloud Run so only include Google provider
-	_ "github.com/sigstore/cosign/v2/pkg/providers/google"
+	_ "github.com/sigstore/cosign/v3/pkg/providers/google"
 )
 
 func NewSigner(ctx context.Context) (gogit.Signer, error) {

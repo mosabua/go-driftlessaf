@@ -18,7 +18,7 @@ import (
 	"chainguard.dev/driftlessaf/reconcilers/ocireconciler/statusmanager"
 	"chainguard.dev/sdk/auth"
 	"github.com/chainguard-dev/terraform-provider-cosign/pkg/private/secant/fulcio"
-	"github.com/sigstore/cosign/v2/pkg/cosign"
+	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/stretchr/testify/require"
 )
 
