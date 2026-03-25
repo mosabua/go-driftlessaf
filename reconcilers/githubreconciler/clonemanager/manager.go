@@ -457,7 +457,7 @@ func (l *Lease) createFreshBranch(branchName string) (plumbing.ReferenceName, er
 		return "", fmt.Errorf("getting worktree: %w", err)
 	}
 
-	if err := worktree.Checkout(&git.CheckoutOptions{Branch: refName, Force: true}); err != nil {
+	if err := worktree.Checkout(&git.CheckoutOptions{Branch: refName, Keep: true}); err != nil {
 		return "", fmt.Errorf("checking out branch: %w", err)
 	}
 

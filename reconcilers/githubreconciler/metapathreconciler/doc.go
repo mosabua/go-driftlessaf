@@ -8,14 +8,21 @@ SPDX-License-Identifier: Apache-2.0
 // path, running an agent to fix diagnostics, and managing the resulting PR
 // through CI feedback loops.
 //
+// Analyzers may modify files in the worktree to fix diagnostics directly,
+// marking those diagnostics as Fixed. Only unfixed diagnostics are forwarded
+// to the agent as findings. When the analyzer fixes all diagnostics, the
+// agent is skipped entirely and the analyzer's changes are committed directly.
+//
 // The reconciler handles two resource types:
 //
 //   - Path resources trigger analysis: the analyzer runs on the file path,
 //     diagnostics are converted to findings, and the agent creates/updates a PR.
+//     Diagnostics marked as Fixed by the analyzer are excluded from agent findings.
 //   - Pull request resources are handled with a three-way branch:
 //     (1) skip label → report neutral/skipped status,
 //     (2) our identity prefix on branch → report neutral status + re-queue path,
-//     (3) other PRs → run analyzer on changed files, report findings as check annotations.
+//     (3) other PRs → run analyzer on changed files, report all diagnostics
+//     (fixed and unfixed) as check annotations.
 //
 // # Basic Usage
 //

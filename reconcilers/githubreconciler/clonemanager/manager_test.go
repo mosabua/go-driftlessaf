@@ -183,12 +183,12 @@ func TestMakeAndPushChanges(t *testing.T) {
 	barPath := filepath.ToSlash(filepath.Join("packages", "bar.yaml"))
 
 	if err := lease.MakeAndPushChanges(ctx, branchName, func(_ context.Context, wt *git.Worktree) (string, error) {
-		// Verify the worktree is clean when the updateFn is called.
+		// Verify the worktree has our changes when the updateFn is called.
 		status, err := wt.Status()
 		if err != nil {
 			return "", fmt.Errorf("Status: %w", err)
 		}
-		if !status.IsClean() {
+		if status.IsClean() {
 			return "", fmt.Errorf("expected clean worktree inside updateFn, got: %v", status)
 		}
 
