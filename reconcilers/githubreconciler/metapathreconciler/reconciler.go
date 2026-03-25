@@ -54,6 +54,22 @@ func (m *Mode) EnvDecode(val string) error {
 	return nil
 }
 
+// String returns a human-readable representation of the mode.
+func (m Mode) String() string {
+	switch m {
+	case ModeAll:
+		return "all"
+	case ModeFix:
+		return "fix"
+	case ModeReview:
+		return "review"
+	case ModeNone:
+		return "none"
+	default:
+		return fmt.Sprintf("unknown(%d)", int(m))
+	}
+}
+
 // ShouldFix reports whether m includes fix behavior.
 func (m Mode) ShouldFix() bool { return m&ModeFix != 0 }
 
@@ -108,6 +124,8 @@ func New[Req promptbuilder.Bindable, Resp Result, CB any](
 		opt(&o)
 	}
 
+	clog.FromContext(ctx).With("mode", o.mode).Info("Starting metapathreconciler")
+
 	sm, err := statusmanager.NewStatusManager[CheckDetails](ctx, identity)
 	if err != nil {
 		return nil, fmt.Errorf("create status manager: %w", err)
@@ -135,7 +153,6 @@ func (r *Reconciler[Req, Resp, CB]) Reconcile(ctx context.Context, res *githubre
 	switch res.Type {
 	case githubreconciler.ResourceTypePath:
 		if !r.mode.ShouldFix() {
-			log.Info("Skipping path (review-only mode)")
 			return nil
 		}
 		return r.reconcilePath(ctx, res, gh)

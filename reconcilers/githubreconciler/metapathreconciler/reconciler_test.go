@@ -129,6 +129,36 @@ func TestEnvDecode(t *testing.T) {
 	}
 }
 
+func TestModeString(t *testing.T) {
+	tests := []struct {
+		mode Mode
+		want string
+	}{{
+		mode: ModeNone,
+		want: "none",
+	}, {
+		mode: ModeFix,
+		want: "fix",
+	}, {
+		mode: ModeReview,
+		want: "review",
+	}, {
+		mode: ModeAll,
+		want: "all",
+	}, {
+		mode: Mode(99),
+		want: "unknown(99)",
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			if got := tt.mode.String(); got != tt.want {
+				t.Errorf("Mode.String(): got = %q, wanted = %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestWithMode(t *testing.T) {
 	tests := []struct {
 		name string

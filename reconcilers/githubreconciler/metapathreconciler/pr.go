@@ -91,7 +91,6 @@ func (r *Reconciler[Req, Resp, CB]) reconcilePullRequest(ctx context.Context, re
 
 	// Case 3: Other PR → run analyzer on changed files.
 	if !r.mode.ShouldReview() {
-		log.Info("Skipping other PR review (fix-only mode)")
 		if !neutralAtHead {
 			return session.SetActualState(ctx, "Skipped (fix-only)", &statusmanager.Status[CheckDetails]{
 				Status:     "completed",
