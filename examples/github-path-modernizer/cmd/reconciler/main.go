@@ -32,7 +32,7 @@ type config struct {
 }
 
 // New constructs the path modernizer reconciler.
-func New(ctx context.Context, identity string, tsf githubreconciler.TokenSourceFunc, cfg config) (githubreconciler.ReconcilerFunc, error) {
+func New(ctx context.Context, identity string, cc *githubreconciler.ClientCache, cfg config) (githubreconciler.ReconcilerFunc, error) {
 	projectID, err := metadata.ProjectIDWithContext(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("detect project ID: %w", err)
@@ -51,7 +51,7 @@ func New(ctx context.Context, identity string, tsf githubreconciler.TokenSourceF
 	if err != nil {
 		return nil, fmt.Errorf("create gitsign signer: %w", err)
 	}
-	cloneMeta := clonemanager.NewMeta(ctx, tsf, identity, signer)
+	cloneMeta := clonemanager.NewMeta(ctx, cc.TokenSourceFor, identity, signer)
 
 	type modernizerTools = toolcall.FindingTools[toolcall.WorktreeTools[toolcall.EmptyTools]]
 	tools := toolcall.NewFindingToolsProvider[*Result, toolcall.WorktreeTools[toolcall.EmptyTools]](

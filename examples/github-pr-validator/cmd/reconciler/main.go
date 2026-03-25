@@ -23,7 +23,7 @@ import (
 
 type config struct{}
 
-func New(ctx context.Context, identity string, _ githubreconciler.TokenSourceFunc, _ config) (githubreconciler.ReconcilerFunc, error) {
+func New(ctx context.Context, identity string, _ *githubreconciler.ClientCache, _ config) (githubreconciler.ReconcilerFunc, error) {
 	sm, err := statusmanager.NewStatusManager[prvalidation.Details](ctx, identity)
 	if err != nil {
 		return nil, fmt.Errorf("creating status manager: %w", err)

@@ -93,6 +93,13 @@ func (cc *ClientCache) Get(ctx context.Context, org, repo string) (*github.Clien
 	return client, nil
 }
 
+// TokenSourceFor returns an OAuth2 token source for the given org/repo combination.
+// This allows callers that need raw token sources (e.g., for git clone operations)
+// to reuse the same token source function that backs the client cache.
+func (cc *ClientCache) TokenSourceFor(ctx context.Context, org, repo string) (oauth2.TokenSource, error) {
+	return cc.tokenSourceFunc(ctx, org, repo)
+}
+
 // Clear removes all cached clients.
 func (cc *ClientCache) Clear() {
 	cc.mu.Lock()

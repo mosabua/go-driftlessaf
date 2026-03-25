@@ -32,12 +32,12 @@ import (
 )
 
 // Functor constructs a ReconcilerFunc from the given context, identity,
-// token source, and user-provided configuration. The type parameter T is
+// client cache, and user-provided configuration. The type parameter T is
 // the user's config struct which is populated via envconfig.
 type Functor[T any] func(
 	ctx context.Context,
 	identity string,
-	tokenSourceFor TokenSourceFunc,
+	cc *ClientCache,
 	cfg T,
 ) (ReconcilerFunc, error)
 
@@ -111,7 +111,7 @@ func commonMain[T any](
 	clientCache := NewClientCache(tsf)
 
 	// Create the reconciler
-	rec, err := f(ctx, env.OctoIdentity, tsf, env.Config)
+	rec, err := f(ctx, env.OctoIdentity, clientCache, env.Config)
 	if err != nil {
 		return fmt.Errorf("create reconciler: %w", err)
 	}
@@ -175,11 +175,11 @@ func CLIMain[T any](ctx context.Context, f Functor[T], identity string, cfg T, k
 		resources = append(resources, res)
 	}
 
-	tsf := func(_ context.Context, _, _ string) (oauth2.TokenSource, error) {
+	cc := NewClientCache(func(_ context.Context, _, _ string) (oauth2.TokenSource, error) {
 		return ghTokenSource{}, nil
-	}
+	})
 
-	rec, err := f(ctx, identity, tsf, cfg)
+	rec, err := f(ctx, identity, cc, cfg)
 	if err != nil {
 		return fmt.Errorf("create reconciler: %w", err)
 	}
