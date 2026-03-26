@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 package claudeexecutor
 
 import (
+	"cmp"
+	"slices"
 	"testing"
 
 	"chainguard.dev/driftlessaf/agents/promptbuilder"
@@ -85,6 +87,73 @@ func TestMaxTurnsApplied(t *testing.T) {
 	e2 := exec2.(*executor[*testBindable, *testResponse])
 	if e2.maxTurns != 25 {
 		t.Errorf("custom maxTurns = %d, want 25", e2.maxTurns)
+	}
+}
+
+func TestCacheControlDefault(t *testing.T) {
+	t.Parallel()
+
+	prompt, err := promptbuilder.NewPrompt("test prompt")
+	if err != nil {
+		t.Fatalf("NewPrompt() error = %v", err)
+	}
+
+	// Default: cacheControl should be true (enabled by default)
+	exec, err := New[*testBindable, *testResponse](anthropic.Client{}, prompt)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	e := exec.(*executor[*testBindable, *testResponse])
+	if !e.cacheControl {
+		t.Error("default cacheControl = false, want true (prompt caching should be on by default)")
+	}
+
+	// WithoutCacheControl: should disable
+	exec2, err := New[*testBindable, *testResponse](anthropic.Client{}, prompt,
+		WithoutCacheControl[*testBindable, *testResponse](),
+	)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	e2 := exec2.(*executor[*testBindable, *testResponse])
+	if e2.cacheControl {
+		t.Error("WithoutCacheControl() cacheControl = true, want false")
+	}
+}
+
+func TestToolDefinitionsSorted(t *testing.T) {
+	t.Parallel()
+
+	// Build tools from a map (non-deterministic order)
+	tools := map[string]struct {
+		name string
+	}{
+		"zebra":  {name: "zebra"},
+		"alpha":  {name: "alpha"},
+		"middle": {name: "middle"},
+		"beta":   {name: "beta"},
+	}
+
+	// Run multiple times to verify sorting overcomes map randomness
+	for range 10 {
+		defs := make([]anthropic.ToolUnionParam, 0, len(tools))
+		for name := range tools {
+			defs = append(defs, anthropic.ToolUnionParam{
+				OfTool: &anthropic.ToolParam{Name: name},
+			})
+		}
+
+		// Apply the same sort the executor uses
+		slices.SortFunc(defs, func(a, b anthropic.ToolUnionParam) int {
+			return cmp.Compare(a.OfTool.Name, b.OfTool.Name)
+		})
+
+		expected := []string{"alpha", "beta", "middle", "zebra"}
+		for i, def := range defs {
+			if def.OfTool.Name != expected[i] {
+				t.Errorf("tool[%d] = %q, want %q", i, def.OfTool.Name, expected[i])
+			}
+		}
 	}
 }
 

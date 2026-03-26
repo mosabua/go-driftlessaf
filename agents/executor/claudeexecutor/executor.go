@@ -6,12 +6,14 @@ SPDX-License-Identifier: Apache-2.0
 package claudeexecutor
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
 	"reflect"
+	"slices"
 
 	"chainguard.dev/driftlessaf/agents/agenttrace"
 	"chainguard.dev/driftlessaf/agents/executor/retry"
@@ -51,6 +53,15 @@ type executor[Request promptbuilder.Bindable, Response any] struct {
 	genaiMetrics         *metrics.GenAI                // OpenTelemetry metrics for token usage and tool calls
 	retryConfig          retry.RetryConfig             // retry configuration for transient Claude API errors
 	resourceLabels       map[string]string             // resource labels for GCP billing attribution
+
+	// cacheControl enables Anthropic prompt caching. When true, the executor places
+	// cache breakpoints on tool definitions and the system prompt so the API can skip
+	// re-processing them on subsequent turns and executions. Cached tokens are read at
+	// 10% of the base input token price (5-min TTL, shared across all requests with
+	// the same prefix within the same org).
+	// Enabled by default — disable with WithoutCacheControl() if needed.
+	// See: https://platform.claude.com/docs/en/build-with-claude/prompt-caching
+	cacheControl bool
 }
 
 // New creates a new Executor with minimal required configuration
@@ -77,6 +88,7 @@ func New[Request promptbuilder.Bindable, Response any](
 		temperature:  0.1,             // Default temperature for consistency
 		genaiMetrics: genaiMetrics,
 		retryConfig:  retry.DefaultRetryConfig(), // Default retry config for rate limit handling
+		cacheControl: true,                       // Prompt caching on by default — see cacheControl field comment
 	}
 
 	// Apply options
@@ -136,12 +148,40 @@ func (e *executor[Request, Response]) Execute(
 		tools = mergedTools
 	}
 
-	// Build tool definitions for Claude
+	// Build tool definitions for Claude, sorted by name for deterministic ordering.
+	//
+	// Why sort? The Anthropic API uses prompt caching to avoid re-processing the
+	// same content on every turn. It works by hashing the request prefix (tools →
+	// system prompt → messages, in that order). If the hash matches a previous
+	// request, cached tokens are served at 10% of the normal input token price.
+	//
+	// Go maps iterate in non-deterministic order, so without sorting, the tool
+	// definitions would serialize differently on every turn — producing a different
+	// hash and invalidating the cache every time, even though the tools haven't
+	// changed. Sorting by name ensures a stable hash across turns and executions.
 	toolDefs := make([]anthropic.ToolUnionParam, 0, len(tools))
 	for _, meta := range tools {
 		toolDefs = append(toolDefs, anthropic.ToolUnionParam{
 			OfTool: &meta.Definition,
 		})
+	}
+	slices.SortFunc(toolDefs, func(a, b anthropic.ToolUnionParam) int {
+		return cmp.Compare(a.OfTool.Name, b.OfTool.Name)
+	})
+
+	// Place a cache breakpoint on the last tool definition.
+	//
+	// A "breakpoint" (cache_control) tells the API: "everything from the start of
+	// the request up to and including this block can be cached." The API hashes
+	// that prefix — if the next request has the same hash, the cached computation
+	// is reused instead of re-processing all those tokens.
+	//
+	// Tools come first in the API prefix order (tools → system → messages), so
+	// a breakpoint here caches all tool definitions. This benefits both multi-turn
+	// conversations (same tools every turn) and separate executions that share the
+	// same tool set (cache is keyed by content hash, not by session).
+	if e.cacheControl && len(toolDefs) > 0 {
+		toolDefs[len(toolDefs)-1].OfTool.CacheControl = anthropic.NewCacheControlEphemeralParam()
 	}
 
 	// Create initial messages, starting with the user prompt
@@ -173,7 +213,15 @@ func (e *executor[Request, Response]) Execute(
 		if err != nil {
 			return response, fmt.Errorf("building system prompt: %w", err)
 		}
-		params.System = []anthropic.TextBlockParam{{Text: systemPrompt}}
+		systemBlock := anthropic.TextBlockParam{Text: systemPrompt}
+		// Place a second cache breakpoint on the system prompt. Since the API prefix
+		// order is tools → system → messages, this breakpoint caches both the tool
+		// definitions AND the system prompt together. On subsequent turns, the API
+		// reads both from cache instead of re-processing them as fresh input tokens.
+		if e.cacheControl {
+			systemBlock.CacheControl = anthropic.NewCacheControlEphemeralParam()
+		}
+		params.System = []anthropic.TextBlockParam{systemBlock}
 	}
 
 	// Add thinking configuration if enabled
@@ -299,8 +347,23 @@ func (e *executor[Request, Response]) Execute(
 		// Record token usage in metrics and trace span
 		if message.Usage.InputTokens > 0 || message.Usage.OutputTokens > 0 {
 			e.recordTokenMetrics(ctx, message.Usage.InputTokens, message.Usage.OutputTokens)
-			// Also record on trace span for easy viewing in Cloud Trace
 			trace.RecordTokenUsage(e.modelName, message.Usage.InputTokens, message.Usage.OutputTokens)
+		}
+
+		// Record prompt cache metrics. The API response includes two cache-specific
+		// token counts alongside the regular input/output tokens:
+		//   - cache_read_input_tokens:     tokens served from cache (cheap, 0.1x price)
+		//   - cache_creation_input_tokens: tokens written to cache (1.25x price, amortized over reads)
+		// These are recorded as OTel counters and trace span attributes for cost analysis.
+		if e.cacheControl {
+			cacheRead := message.Usage.CacheReadInputTokens
+			cacheCreation := message.Usage.CacheCreationInputTokens
+			if cacheRead > 0 || cacheCreation > 0 {
+				e.recordCacheMetrics(ctx, cacheRead, cacheCreation)
+				trace.RecordCacheTokenUsage(cacheRead, cacheCreation)
+				log.With("cache_read_tokens", cacheRead, "cache_creation_tokens", cacheCreation).
+					Info("Prompt cache metrics")
+			}
 		}
 
 		// Process response
@@ -418,6 +481,12 @@ func (e *executor[Request, Response]) resourceLabelsToAttributes() []attribute.K
 func (e *executor[Request, Response]) recordTokenMetrics(ctx context.Context, inputTokens, outputTokens int64) {
 	attrs := e.resourceLabelsToAttributes()
 	e.genaiMetrics.RecordTokens(ctx, e.modelName, inputTokens, outputTokens, attrs...)
+}
+
+// recordCacheMetrics records prompt cache token usage with optional enrichment
+func (e *executor[Request, Response]) recordCacheMetrics(ctx context.Context, cacheRead, cacheCreation int64) {
+	attrs := e.resourceLabelsToAttributes()
+	e.genaiMetrics.RecordCacheTokens(ctx, e.modelName, cacheRead, cacheCreation, attrs...)
 }
 
 // recordToolCall records a tool call metric with optional enrichment

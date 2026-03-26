@@ -132,6 +132,28 @@ func (t *Trace[T]) RecordTokenUsage(model string, inputTokens, outputTokens int6
 	}
 }
 
+// RecordCacheTokenUsage records Anthropic prompt cache token metrics as span
+// attributes using OpenTelemetry GenAI semantic conventions. These appear
+// alongside gen_ai.usage.input_tokens and gen_ai.usage.output_tokens in Cloud
+// Trace, enabling per-request visibility into how much of the input was served
+// from cache vs fresh.
+// See: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/
+func (t *Trace[T]) RecordCacheTokenUsage(cacheReadTokens, cacheCreationTokens int64) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.span != nil {
+		t.span.SetAttributes(
+			// Custom attributes
+			attribute.Int64("tokens.cache_read", cacheReadTokens),
+			attribute.Int64("tokens.cache_creation", cacheCreationTokens),
+			// OpenTelemetry GenAI semantic conventions
+			attribute.Int64("gen_ai.usage.cache_read_input_tokens", cacheReadTokens),
+			attribute.Int64("gen_ai.usage.cache_creation_input_tokens", cacheCreationTokens),
+		)
+	}
+}
+
 // BadToolCall records a tool call that failed due to bad arguments or unknown tool
 func (t *Trace[T]) BadToolCall(id, name string, params map[string]any, err error) {
 	tr := otel.Tracer("chainguard.ai.agents.agenttrace",

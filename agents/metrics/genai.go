@@ -17,8 +17,9 @@ import (
 )
 
 // GenAI provides OpenTelemetry metrics for generative AI operations.
-// It includes counters for token usage (prompt and completion) and tool calls,
-// with support for graceful degradation if metric creation fails.
+// It includes counters for token usage (prompt and completion), tool calls,
+// and prompt cache metrics, with support for graceful degradation if metric
+// creation fails.
 type GenAI struct {
 	meter            metric.Meter
 	promptTokens     metric.Int64Counter
@@ -82,6 +83,33 @@ func (m *GenAI) RecordTokens(ctx context.Context, model string, promptTokens, co
 
 	m.promptTokens.Add(ctx, promptTokens, metric.WithAttributes(baseAttrs...))
 	m.completionTokens.Add(ctx, completionTokens, metric.WithAttributes(baseAttrs...))
+}
+
+// RecordCacheTokens records Anthropic prompt cache token usage on the existing
+// prompt tokens counter using gen_ai.token.type dimension values "cache_read"
+// and "cache_creation". This aligns with the OpenTelemetry GenAI semantic
+// conventions pattern from gen_ai.client.token.usage (see #35633).
+//
+// cacheRead: tokens served from cache (cheap — 0.1x base input price).
+// cacheCreation: tokens written to cache (1.25x base input price, amortized over reads).
+//
+// A healthy caching setup shows high cache_read and low/zero cache_creation
+// after the first turn.
+func (m *GenAI) RecordCacheTokens(ctx context.Context, model string, cacheRead, cacheCreation int64, attrs ...attribute.KeyValue) {
+	baseAttrs := []attribute.KeyValue{
+		attribute.String("model", model),
+	}
+	baseAttrs = agenttrace.GetExecutionContext(ctx).EnrichAttributes(baseAttrs)
+	baseAttrs = append(baseAttrs, attrs...)
+
+	if cacheRead > 0 {
+		readAttrs := append(append([]attribute.KeyValue{}, baseAttrs...), attribute.String("gen_ai.token.type", "cache_read"))
+		m.promptTokens.Add(ctx, cacheRead, metric.WithAttributes(readAttrs...))
+	}
+	if cacheCreation > 0 {
+		creationAttrs := append(append([]attribute.KeyValue{}, baseAttrs...), attribute.String("gen_ai.token.type", "cache_creation"))
+		m.promptTokens.Add(ctx, cacheCreation, metric.WithAttributes(creationAttrs...))
+	}
 }
 
 // RecordToolCall records a tool invocation.

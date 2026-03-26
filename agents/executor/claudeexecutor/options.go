@@ -132,6 +132,24 @@ func WithRetryConfig[Request promptbuilder.Bindable, Response any](cfg retry.Ret
 	}
 }
 
+// WithoutCacheControl disables Anthropic prompt caching.
+//
+// Prompt caching is enabled by default because it significantly reduces input token
+// costs for multi-turn agentic workflows. The API caches the request prefix (tool
+// definitions + system prompt) and serves it at 10% of the normal input token price
+// on subsequent turns. The only cost is a 1.25x write premium on the first turn,
+// which is amortized across all subsequent cache reads within the 5-min TTL.
+//
+// You would only disable this if you have a single-turn agent that runs less than
+// once every 5 minutes, where the 1.25x write cost would never be recouped.
+// See: https://platform.claude.com/docs/en/build-with-claude/prompt-caching
+func WithoutCacheControl[Request promptbuilder.Bindable, Response any]() Option[Request, Response] {
+	return func(e *executor[Request, Response]) error {
+		e.cacheControl = false
+		return nil
+	}
+}
+
 // WithResourceLabels sets labels for GCP billing attribution when using Claude via Vertex AI.
 // Automatically includes default labels from environment variables:
 //   - service_name: from K_SERVICE (defaults to "unknown")
