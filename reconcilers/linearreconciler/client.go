@@ -359,6 +359,71 @@ func (c *Client) CreateComment(ctx context.Context, issueID, body string) error 
 	return nil
 }
 
+// UpdateComment updates an existing comment's body.
+func (c *Client) UpdateComment(ctx context.Context, commentID, body string) error {
+	const mutation = `mutation($id: String!, $body: String!) {
+		commentUpdate(id: $id, input: { body: $body }) {
+			success
+		}
+	}`
+
+	var result struct {
+		CommentUpdate struct {
+			Success bool `json:"success"`
+		} `json:"commentUpdate"`
+	}
+	err := c.graphql(ctx, mutation, map[string]any{
+		"id":   commentID,
+		"body": body,
+	}, &result)
+	if err != nil {
+		return err
+	}
+	if !result.CommentUpdate.Success {
+		return fmt.Errorf("comment update failed")
+	}
+	return nil
+}
+
+// upsertComment creates or updates a comment on an issue.
+// If commentID is non-empty, the existing comment is updated.
+// Otherwise, a new comment is created. Returns the comment ID.
+func (c *Client) upsertComment(ctx context.Context, issueID, commentID, body string) (string, error) {
+	if commentID != "" {
+		if err := c.UpdateComment(ctx, commentID, body); err != nil {
+			return commentID, err
+		}
+		return commentID, nil
+	}
+
+	const mutation = `mutation($issueId: String!, $body: String!) {
+		commentCreate(input: { issueId: $issueId, body: $body }) {
+			success
+			comment { id }
+		}
+	}`
+
+	var result struct {
+		CommentCreate struct {
+			Success bool `json:"success"`
+			Comment struct {
+				ID string `json:"id"`
+			} `json:"comment"`
+		} `json:"commentCreate"`
+	}
+	err := c.graphql(ctx, mutation, map[string]any{
+		"issueId": issueID,
+		"body":    body,
+	}, &result)
+	if err != nil {
+		return "", err
+	}
+	if !result.CommentCreate.Success {
+		return "", fmt.Errorf("comment creation failed")
+	}
+	return result.CommentCreate.Comment.ID, nil
+}
+
 // UpdateIssueDescription updates the issue's description.
 func (c *Client) UpdateIssueDescription(ctx context.Context, issueID, description string) error {
 	const mutation = `mutation($id: String!, $description: String!) {
@@ -378,22 +443,27 @@ func (c *Client) UpdateIssueDescription(ctx context.Context, issueID, descriptio
 	}, &result)
 }
 
-// UploadFileAttachment uploads content as a file attachment on an issue.
-// If existingID is non-empty, the old attachment is deleted first (best-effort).
-func (c *Client) UploadFileAttachment(ctx context.Context, issueID, title string, content []byte, existingID string) error {
-	// Delete old attachment if updating.
-	if existingID != "" {
-		const deleteMutation = `mutation($id: String!) {
-			attachmentDelete(id: $id) { success }
-		}`
-		var deleteResult struct {
-			AttachmentDelete struct {
-				Success bool `json:"success"`
-			} `json:"attachmentDelete"`
-		}
-		_ = c.graphql(ctx, deleteMutation, map[string]any{"id": existingID}, &deleteResult)
+// DeleteAttachment deletes an attachment by ID.
+func (c *Client) DeleteAttachment(ctx context.Context, attachmentID string) error {
+	const mutation = `mutation($id: String!) {
+		attachmentDelete(id: $id) { success }
+	}`
+	var result struct {
+		AttachmentDelete struct {
+			Success bool `json:"success"`
+		} `json:"attachmentDelete"`
 	}
+	if err := c.graphql(ctx, mutation, map[string]any{"id": attachmentID}, &result); err != nil {
+		return fmt.Errorf("deleting attachment %s: %w", attachmentID, err)
+	}
+	if !result.AttachmentDelete.Success {
+		return fmt.Errorf("deleting attachment %s: API returned success=false", attachmentID)
+	}
+	return nil
+}
 
+// UploadFileAttachment uploads content as a file attachment on an issue.
+func (c *Client) UploadFileAttachment(ctx context.Context, issueID, title string, content []byte) error {
 	// Step 1: Request a presigned upload URL.
 	const uploadMutation = `mutation($contentType: String!, $filename: String!, $size: Int!) {
 		fileUpload(contentType: $contentType, filename: $filename, size: $size) {
