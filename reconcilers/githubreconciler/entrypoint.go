@@ -8,8 +8,6 @@ package githubreconciler
 import (
 	"context"
 	"fmt"
-	"os/exec"
-	"strings"
 	"sync"
 	"time"
 
@@ -147,24 +145,14 @@ func commonMain[T any](
 	return d.ListenAndServe(ctx)
 }
 
-// ghTokenSource is an oauth2.TokenSource that shells out to 'gh auth token'.
-type ghTokenSource struct{}
-
-func (ghTokenSource) Token() (*oauth2.Token, error) {
-	out, err := exec.Command("gh", "auth", "token").Output()
-	if err != nil {
-		return nil, fmt.Errorf("gh auth token: %w", err)
-	}
-	return &oauth2.Token{
-		AccessToken: strings.TrimSpace(string(out)),
-	}, nil
-}
-
-// CLIMain runs a reconciler locally in a loop, useful for development and
-// testing. It uses 'gh auth token' for GitHub authentication. Each key is
-// reconciled in its own goroutine with a 1m delay between iterations.
-// The function blocks until ctx is cancelled.
-func CLIMain[T any](ctx context.Context, f Functor[T], identity string, cfg T, keys []string) error {
+// CLIMain runs a reconciler locally in a loop. Each key is reconciled in its
+// own goroutine with a 1m delay between iterations. The function blocks until
+// ctx is cancelled.
+//
+// The tsf parameter provides GitHub credentials for API calls. Use
+// NewRepoTokenSource or NewOrgTokenSource to build token sources from
+// Octo STS identities.
+func CLIMain[T any](ctx context.Context, f Functor[T], identity string, tsf TokenSourceFunc, cfg T, keys []string) error {
 	// Parse all keys upfront to fail fast on bad URLs.
 	resources := make([]*Resource, 0, len(keys))
 	for _, key := range keys {
@@ -175,16 +163,19 @@ func CLIMain[T any](ctx context.Context, f Functor[T], identity string, cfg T, k
 		resources = append(resources, res)
 	}
 
-	cc := NewClientCache(func(_ context.Context, _, _ string) (oauth2.TokenSource, error) {
-		return ghTokenSource{}, nil
-	})
+	cc := NewClientCache(tsf)
 
 	rec, err := f(ctx, identity, cc, cfg)
 	if err != nil {
 		return fmt.Errorf("create reconciler: %w", err)
 	}
 
-	gh := github.NewClient(oauth2.NewClient(ctx, ghTokenSource{}))
+	// Use the first resource's owner/repo for the top-level github client.
+	ts, err := tsf(ctx, resources[0].Owner, resources[0].Repo)
+	if err != nil {
+		return fmt.Errorf("create token source: %w", err)
+	}
+	gh := github.NewClient(oauth2.NewClient(ctx, ts))
 
 	clog.InfoContext(ctx, "Starting reconciler loop", "identity", identity, "keys", len(keys))
 
