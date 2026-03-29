@@ -136,7 +136,6 @@ func fetchFindingLogs(ctx context.Context, gh *github.Client, owner, repo string
 		}
 	}
 
-	// For unrecognized URL formats (e.g., GCP console links handled
-	// downstream by gcpfindings), return Details as a fallback.
+	// For unrecognized URL formats, return Details as a fallback.
 	return f.Details, nil
 }
