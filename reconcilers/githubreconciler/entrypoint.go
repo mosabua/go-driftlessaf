@@ -43,8 +43,16 @@ type Functor[T any] func(
 // MainOption configures the behavior of Main and its wrappers.
 type MainOption func(*mainOptions)
 
+// Middleware wraps a ReconcilerFunc, allowing callers to inject logic before
+// and/or after each reconcile invocation. Layers are composed so that the
+// first argument to WithMiddleware is outermost: WithMiddleware(A, B) produces
+// A(B(rec)), matching gRPC interceptor ordering.
+type Middleware func(ReconcilerFunc) ReconcilerFunc
+
 type mainOptions struct {
+	identity       string
 	interceptors   []grpc.UnaryServerInterceptor
+	middleware     []Middleware
 	tsff           func(identity string) TokenSourceFunc
 	reconcilerOpts []Option
 }
@@ -70,6 +78,24 @@ func WithTokenSourceFuncFactory(f func(identity string) TokenSourceFunc) MainOpt
 	}
 }
 
+// WithIdentity sets the reconciler identity, overriding the OCTO_IDENTITY
+// environment variable. Exactly one of WithIdentity or OCTO_IDENTITY must be
+// provided.
+func WithIdentity(identity string) MainOption {
+	return func(o *mainOptions) {
+		o.identity = identity
+	}
+}
+
+// WithMiddleware appends middleware layers applied to the ReconcilerFunc before
+// it is invoked. The first argument is outermost: WithMiddleware(A, B) produces
+// A(B(rec)), matching gRPC interceptor ordering.
+func WithMiddleware(m ...Middleware) MainOption {
+	return func(o *mainOptions) {
+		o.middleware = append(o.middleware, m...)
+	}
+}
+
 // withReconcilerOptions appends options forwarded to the workqueue reconciler.
 // Used by OrgMain to enable org-scoped credential handling.
 func withReconcilerOptions(opts ...Option) MainOption {
@@ -92,13 +118,13 @@ func AppMain[T any](ctx context.Context, f Functor[T], opts ...MainOption) error
 		return fmt.Errorf("process GitHub App environment config: %w", err)
 	}
 
-	tsf, err := NewAppTokenSource(ctx, appEnv.AppID, appEnv.AppKey)
+	app, err := NewApp(ctx, appEnv.AppID, appEnv.AppKey)
 	if err != nil {
-		return fmt.Errorf("create GitHub App token source: %w", err)
+		return fmt.Errorf("create GitHub App: %w", err)
 	}
 
 	return Main(ctx, f, append(opts, WithTokenSourceFuncFactory(func(_ string) TokenSourceFunc {
-		return tsf
+		return app.TokenSourceFunc()
 	}))...)
 }
 
@@ -123,6 +149,15 @@ func OrgMain[T any](ctx context.Context, f Functor[T], opts ...MainOption) error
 		}),
 		withReconcilerOptions(WithOrgScopedCredentials()),
 	)...)
+}
+
+// applyMiddleware wraps rec with each layer in order, so that the first layer
+// in the slice is outermost. An empty slice returns rec unchanged.
+func applyMiddleware(rec ReconcilerFunc, layers []Middleware) ReconcilerFunc {
+	for i := len(layers) - 1; i >= 0; i-- {
+		rec = layers[i](rec)
+	}
+	return rec
 }
 
 // Main is the core entrypoint for GitHub reconcilers. It parses environment
@@ -150,7 +185,7 @@ func Main[T any](ctx context.Context, f Functor[T], opts ...MainOption) error {
 		Config T
 
 		Port         int    `env:"PORT,default=8080"`
-		OctoIdentity string `env:"OCTO_IDENTITY,required"`
+		OctoIdentity string `env:"OCTO_IDENTITY"`
 		MetricsPort  int    `env:"METRICS_PORT,default=2112"`
 		EnablePprof  bool   `env:"ENABLE_PPROF,default=false"`
 	}{}
@@ -158,18 +193,25 @@ func Main[T any](ctx context.Context, f Functor[T], opts ...MainOption) error {
 		return fmt.Errorf("process environment config: %w", err)
 	}
 
+	identity := mo.identity
+	if identity == "" {
+		identity = env.OctoIdentity
+	}
+	if identity == "" {
+		return errors.New("no identity configured: set OCTO_IDENTITY or use WithIdentity")
+	}
+
 	profiler.SetupProfiler()
 	defer httpmetrics.SetupMetrics(ctx)()
 	defer httpmetrics.SetupTracer(ctx)()
 
-	tsf := mo.tsff(env.OctoIdentity)
+	clientCache := NewClientCache(mo.tsff(identity))
 
-	clientCache := NewClientCache(tsf)
-
-	rec, err := f(ctx, env.OctoIdentity, clientCache, env.Config)
+	rec, err := f(ctx, identity, clientCache, env.Config)
 	if err != nil {
 		return fmt.Errorf("create reconciler: %w", err)
 	}
+	rec = applyMiddleware(rec, mo.middleware)
 
 	d := duplex.New(
 		env.Port,
@@ -201,10 +243,20 @@ func Main[T any](ctx context.Context, f Functor[T], opts ...MainOption) error {
 // own goroutine with a 1m delay between iterations. The function blocks until
 // ctx is cancelled.
 //
-// The tsf parameter provides GitHub credentials for API calls. Use
-// NewRepoTokenSource or NewOrgTokenSource to build token sources from
-// Octo STS identities.
-func CLIMain[T any](ctx context.Context, f Functor[T], identity string, tsf TokenSourceFunc, cfg T, keys []string) error {
+// Use WithIdentity and WithTokenSourceFuncFactory to supply the reconciler
+// identity and GitHub credentials respectively.
+func CLIMain[T any](ctx context.Context, f Functor[T], cfg T, keys []string, opts ...MainOption) error {
+	var mo mainOptions
+	for _, o := range opts {
+		o(&mo)
+	}
+	if mo.tsff == nil {
+		return errors.New("no token source factory configured: use WithTokenSourceFuncFactory")
+	}
+	if mo.identity == "" {
+		return errors.New("no identity configured: use WithIdentity")
+	}
+
 	// Parse all keys upfront to fail fast on bad URLs.
 	resources := make([]*Resource, 0, len(keys))
 	for _, key := range keys {
@@ -215,12 +267,14 @@ func CLIMain[T any](ctx context.Context, f Functor[T], identity string, tsf Toke
 		resources = append(resources, res)
 	}
 
+	tsf := mo.tsff(mo.identity)
 	cc := NewClientCache(tsf)
 
-	rec, err := f(ctx, identity, cc, cfg)
+	rec, err := f(ctx, mo.identity, cc, cfg)
 	if err != nil {
 		return fmt.Errorf("create reconciler: %w", err)
 	}
+	rec = applyMiddleware(rec, mo.middleware)
 
 	// Use the first resource's owner/repo for the top-level github client.
 	ts, err := tsf(ctx, resources[0].Owner, resources[0].Repo)
@@ -229,7 +283,7 @@ func CLIMain[T any](ctx context.Context, f Functor[T], identity string, tsf Toke
 	}
 	gh := github.NewClient(oauth2.NewClient(ctx, ts))
 
-	clog.InfoContext(ctx, "Starting reconciler loop", "identity", identity, "keys", len(keys))
+	clog.InfoContext(ctx, "Starting reconciler loop", "identity", mo.identity, "keys", len(keys))
 
 	var wg sync.WaitGroup
 	for _, res := range resources {

@@ -10,40 +10,114 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 
 	kms "cloud.google.com/go/kms/apiv1"
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	"github.com/google/go-github/v84/github"
 	"github.com/octo-sts/app/pkg/gcpkms"
 	"golang.org/x/oauth2"
+	"golang.org/x/sync/singleflight"
 )
 
-// NewAppClient creates a GitHub client authenticated as the app using a JWT
-// (not an installation token). Use this for app-level API calls such as
-// listing installations and their repositories. Unlike the clients vended by
-// ClientCache, this client is not scoped to a specific installation.
-func NewAppClient(ctx context.Context, appID int64, appKey string) (*github.Client, error) {
-	atr, err := newAppTransport(ctx, appID, appKey)
-	if err != nil {
-		return nil, err
-	}
-	return github.NewClient(&http.Client{Transport: atr}), nil
+// App holds the transport and installation ID cache for a GitHub App.
+// Construct one with NewApp and use its methods in place of the standalone
+// NewAppClient and NewAppTokenSource functions.
+type App struct {
+	atr    *ghinstallation.AppsTransport
+	client *github.Client
+	mu     sync.RWMutex
+	cache  map[string]int64
+	sf     singleflight.Group
 }
 
-// NewAppTokenSource creates a TokenSourceFunc backed by the GitHub App
-// identified by appID. appKey must be a gcpkms:// URI pointing to the Cloud
-// KMS crypto key version holding the app's RSA private key.
-//
-// The returned TokenSourceFunc resolves the installation ID for each org on
-// first use and mints a scoped installation token for the requested org/repo.
-func NewAppTokenSource(ctx context.Context, appID int64, appKey string) (TokenSourceFunc, error) {
-	atr, err := newAppTransport(ctx, appID, appKey)
+// NewApp creates an App from a gcpkms:// key URI. The returned App caches
+// installation ID lookups for the lifetime of the instance.
+func NewApp(ctx context.Context, appID int64, keyURI string) (*App, error) {
+	atr, err := newAppTransport(ctx, appID, keyURI)
 	if err != nil {
 		return nil, err
 	}
-	return func(ctx context.Context, org, repo string) (oauth2.TokenSource, error) {
-		return newAppRepoTokenSource(ctx, atr, org, repo)
+	return &App{
+		atr:    atr,
+		client: github.NewClient(&http.Client{Transport: atr}),
+		cache:  make(map[string]int64),
 	}, nil
+}
+
+// Client returns a GitHub client authenticated as the app using a JWT (not an
+// installation token). Use this for app-level API calls such as listing
+// installations and their repositories. Unlike the clients vended by
+// ClientCache, this client is not scoped to a specific installation.
+func (a *App) Client() *github.Client {
+	return a.client
+}
+
+// LookupInstallID returns the GitHub App installation ID for org. Results are
+// cached for the lifetime of the App. Concurrent lookups for the same org are
+// coalesced into a single GitHub API call.
+func (a *App) LookupInstallID(ctx context.Context, org string) (int64, error) {
+	a.mu.RLock()
+	id, ok := a.cache[org]
+	a.mu.RUnlock()
+	if ok {
+		return id, nil
+	}
+
+	v, err, _ := a.sf.Do(org, func() (any, error) {
+		id, err := appLookupInstallID(ctx, a.client, org)
+		if err != nil {
+			return nil, err
+		}
+		a.mu.Lock()
+		a.cache[org] = id
+		a.mu.Unlock()
+		return id, nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return v.(int64), nil
+}
+
+// TokenSourceFunc returns a TokenSourceFunc that mints installation tokens
+// scoped to the requested org/repo.
+func (a *App) TokenSourceFunc() TokenSourceFunc {
+	return func(ctx context.Context, org, repo string) (oauth2.TokenSource, error) {
+		return a.newRepoTokenSource(ctx, org, repo)
+	}
+}
+
+func (a *App) newRepoTokenSource(ctx context.Context, org, repo string) (oauth2.TokenSource, error) {
+	installID, err := a.LookupInstallID(ctx, org)
+	if err != nil {
+		return nil, err
+	}
+	itr := ghinstallation.NewFromAppsTransport(a.atr, installID)
+	if repo != "" {
+		itr.InstallationTokenOptions = &github.InstallationTokenOptions{
+			Repositories: []string{repo},
+		}
+	}
+	return &appTokenSource{ctx: ctx, itr: itr}, nil
+}
+
+// NewAppClient creates a GitHub client authenticated as the app using a JWT.
+func NewAppClient(ctx context.Context, appID int64, appKey string) (*github.Client, error) {
+	app, err := NewApp(ctx, appID, appKey)
+	if err != nil {
+		return nil, err
+	}
+	return app.Client(), nil
+}
+
+// NewAppTokenSource creates a TokenSourceFunc backed by the GitHub App.
+func NewAppTokenSource(ctx context.Context, appID int64, appKey string) (TokenSourceFunc, error) {
+	app, err := NewApp(ctx, appID, appKey)
+	if err != nil {
+		return nil, err
+	}
+	return app.TokenSourceFunc(), nil
 }
 
 // newAppTransport creates a *ghinstallation.AppsTransport from a gcpkms:// key URI.
@@ -89,28 +163,9 @@ func (ts *appTokenSource) Token() (*oauth2.Token, error) {
 	}, nil
 }
 
-// newAppRepoTokenSource resolves the installation ID for org immediately and
-// returns an oauth2.TokenSource scoped to org/repo.
-func newAppRepoTokenSource(ctx context.Context, atr *ghinstallation.AppsTransport, org, repo string) (oauth2.TokenSource, error) {
-	installID, err := appLookupInstallID(ctx, atr, org)
-	if err != nil {
-		return nil, err
-	}
-
-	itr := ghinstallation.NewFromAppsTransport(atr, installID)
-	if repo != "" {
-		itr.InstallationTokenOptions = &github.InstallationTokenOptions{
-			Repositories: []string{repo},
-		}
-	}
-
-	return &appTokenSource{ctx: ctx, itr: itr}, nil
-}
-
 // appLookupInstallID returns the GitHub App installation ID for org by walking
 // the app's installation list.
-func appLookupInstallID(ctx context.Context, atr *ghinstallation.AppsTransport, org string) (int64, error) {
-	client := github.NewClient(&http.Client{Transport: atr})
+func appLookupInstallID(ctx context.Context, client *github.Client, org string) (int64, error) {
 	page := 1
 	for page != 0 {
 		installs, resp, err := client.Apps.ListInstallations(ctx, &github.ListOptions{
