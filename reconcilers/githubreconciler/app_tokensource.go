@@ -21,8 +21,7 @@ import (
 )
 
 // App holds the transport and installation ID cache for a GitHub App.
-// Construct one with NewApp and use its methods in place of the standalone
-// NewAppClient and NewAppTokenSource functions.
+// Construct one with NewApp and use its methods.
 type App struct {
 	atr    *ghinstallation.AppsTransport
 	client *github.Client
@@ -100,24 +99,6 @@ func (a *App) newRepoTokenSource(ctx context.Context, org, repo string) (oauth2.
 		}
 	}
 	return &appTokenSource{ctx: ctx, itr: itr}, nil
-}
-
-// NewAppClient creates a GitHub client authenticated as the app using a JWT.
-func NewAppClient(ctx context.Context, appID int64, appKey string) (*github.Client, error) {
-	app, err := NewApp(ctx, appID, appKey)
-	if err != nil {
-		return nil, err
-	}
-	return app.Client(), nil
-}
-
-// NewAppTokenSource creates a TokenSourceFunc backed by the GitHub App.
-func NewAppTokenSource(ctx context.Context, appID int64, appKey string) (TokenSourceFunc, error) {
-	app, err := NewApp(ctx, appID, appKey)
-	if err != nil {
-		return nil, err
-	}
-	return app.TokenSourceFunc(), nil
 }
 
 // newAppTransport creates a *ghinstallation.AppsTransport from a gcpkms:// key URI.
