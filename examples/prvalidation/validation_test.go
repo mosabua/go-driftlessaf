@@ -22,12 +22,12 @@ func TestConventionalCommitRegex(t *testing.T) {
 
 	for _, title := range valid {
 		if !ConventionalCommitRegex.MatchString(title) {
-			t.Errorf("expected %q to match", title)
+			t.Errorf("MatchString(%q): got = false, want = true", title)
 		}
 	}
 	for _, title := range invalid {
 		if ConventionalCommitRegex.MatchString(title) {
-			t.Errorf("expected %q to NOT match", title)
+			t.Errorf("MatchString(%q): got = true, want = false", title)
 		}
 	}
 }
@@ -106,7 +106,7 @@ func TestComputeGeneration(t *testing.T) {
 	gen1 := ComputeGeneration("abc123", "feat: title", "body text")
 	gen2 := ComputeGeneration("abc123", "feat: title", "body text")
 	if gen1 != gen2 {
-		t.Errorf("same inputs should produce same generation: got %s and %s", gen1, gen2)
+		t.Errorf("ComputeGeneration (same inputs): got = %s, want = %s", gen1, gen2)
 	}
 
 	// Different SHA should produce different generation
@@ -129,7 +129,7 @@ func TestComputeGeneration(t *testing.T) {
 
 	// Generation should be a valid hex string (64 chars for SHA256)
 	if len(gen1) != 64 {
-		t.Errorf("generation should be 64 hex chars, got %d: %s", len(gen1), gen1)
+		t.Errorf("len(ComputeGeneration(...)): got = %d, want = 64 (value: %s)", len(gen1), gen1)
 	}
 }
 
