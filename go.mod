@@ -6,13 +6,14 @@ require (
 	chainguard.dev/apko v1.1.11
 	chainguard.dev/go-grpc-kit v0.17.17
 	chainguard.dev/sdk v0.1.50
+	cloud.google.com/go/aiplatform v1.121.0
 	cloud.google.com/go/compute/metadata v0.9.0
 	cloud.google.com/go/kms v1.25.0
 	cloud.google.com/go/storage v1.59.1
 	github.com/anthropics/anthropic-sdk-go v1.20.0
 	github.com/bradleyfalzon/ghinstallation/v2 v2.18.0
 	github.com/chainguard-dev/clog v1.8.0
-	github.com/chainguard-dev/terraform-infra-common v1.0.2
+	github.com/chainguard-dev/terraform-infra-common v0.10.0
 	github.com/chainguard-dev/terraform-provider-cosign v0.2.7
 	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/go-git/go-git/v5 v5.17.2
@@ -279,10 +280,14 @@ require (
 	golang.org/x/text v0.35.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/genproto v0.0.0-20260217215200-42d3e9bedb6d // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260311181403-84a4fc48630c // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260311181403-84a4fc48630c // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260316180232-0b37fe3546d5 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260316180232-0b37fe3546d5 // indirect
 	gopkg.in/ini.v1 v1.67.1 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
+
+replace chainguard.dev/sdk => ../../public/sdk
+
+replace github.com/chainguard-dev/terraform-infra-common => ../terraform-infra-common
