@@ -98,6 +98,12 @@ func (r *Reconciler[Req, Resp, CB]) reconcilePath(ctx context.Context, res *gith
 		}
 	}()
 
+	// Get the worktree for analyzer and request building.
+	wt, err := lease.Repo().Worktree()
+	if err != nil {
+		return fmt.Errorf("get worktree: %w", err)
+	}
+
 	// Build findings for the agent. On the first pass (no PR or needs rebase),
 	// run the analyzer and feed diagnostics. On subsequent passes (CI failures),
 	// only feed CI check findings. Mixing the two can cause conflicts (e.g.
@@ -114,10 +120,6 @@ func (r *Reconciler[Req, Resp, CB]) reconcilePath(ctx context.Context, res *gith
 		// the worktree to fix some diagnostics, marking them as Fixed.
 		// Those modifications persist through createFreshBranch (same-SHA
 		// checkout) and are included in the eventual commit.
-		wt, err := lease.Repo().Worktree()
-		if err != nil {
-			return fmt.Errorf("get worktree: %w", err)
-		}
 		diagnostics, err = r.analyzer.Analyze(ctx, wt, res.Path)
 		if err != nil {
 			return fmt.Errorf("run analyzer: %w", err)
@@ -145,16 +147,15 @@ func (r *Reconciler[Req, Resp, CB]) reconcilePath(ctx context.Context, res *gith
 		}
 	}
 
-	// When the analyzer fixed everything, we still need a request for PRData
-	// but skip the agent entirely.
-	var request Req
+	// Build the request for PRData. Even when the analyzer fixed everything,
+	// we still build the request so that any stable fields (e.g. SkillsHash)
+	// are captured in PRData for change detection.
+	request, err := r.buildRequest(ctx, wt, findings)
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
 	if !allFixed {
 		log.With("findings", len(findings)).Info("Running agent")
-		var err error
-		request, err = r.buildRequest(ctx, findings)
-		if err != nil {
-			return fmt.Errorf("build request: %w", err)
-		}
 	}
 
 	// Upsert PR with changes (analyzer fixes, agent fixes, or both).
